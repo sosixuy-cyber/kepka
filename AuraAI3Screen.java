@@ -8,7 +8,6 @@ import ru.etc1337.api.interfaces.QuickImports;
 import ru.etc1337.api.render.font.Fonts;
 import ru.etc1337.api.render.rect.ShapeProperties;
 import ru.etc1337.api.util.color.ColorUtility;
-import spiral.visual.util.render.pipeline.MirageGlassPipeline;
 
 import java.awt.Color;
 import java.util.ArrayList;
