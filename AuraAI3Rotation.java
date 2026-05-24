@@ -19,8 +19,8 @@ import ru.etc1337.client.modules.impl.combat.aura.rotation.api.Rotation;
  */
 public final class AuraAI3Rotation extends Rotation {
 
-    // Миксовка: сколько процентов от нейронки. 0.0 = чистый smooth, 1.0 = чистая нейронка
-    private static final float NEURAL_MIX = 0.6f;
+    // Миксовка: 85% нейронка, 15% smooth (только для гарантии доезда)
+    private static final float NEURAL_MIX = 0.85f;
 
     // Smooth параметры
     private float smoothYaw = Float.NaN, smoothPitch = Float.NaN;
@@ -104,10 +104,10 @@ public final class AuraAI3Rotation extends Rotation {
             // 3. МИКС: smooth + neural
             // ═══════════════════════════════════════════
             float mix = NEURAL_MIX;
-            // При очень маленьком отклонении — больше smooth (точная доводка)
-            if (totalAngle < 3f) mix *= 0.4f;
-            // При большом — больше neural (характер разгона)
-            else if (totalAngle > 20f) mix = Math.min(mix * 1.3f, 0.85f);
+            // При очень маленьком отклонении — чуть больше smooth для финальной доводки
+            if (totalAngle < 2f) mix *= 0.6f;
+            // При среднем и большом — почти полностью нейронка
+            else if (totalAngle > 10f) mix = Math.min(mix * 1.1f, 0.95f);
 
             finalStepYaw = smoothStepYaw * (1f - mix) + neuralYaw * mix;
             finalStepPitch = smoothStepPitch * (1f - mix) + neuralPitch * mix;
