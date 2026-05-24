@@ -10,18 +10,19 @@ import ru.etc1337.api.render.rect.ShapeProperties;
 import ru.etc1337.api.util.color.ColorUtility;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 /**
- * AuraAI3Screen v3 — Liquid Glass + Jelly + Shader-like effects.
- * Формат записи: yaw_norm, pitch_norm -> move_dyaw, move_dpitch
- * Predict: 85% твои движения, 15% smooth доводка.
+ * AuraAI3Screen v5 — Liquid Glass + animated waves + jelly + particles.
+ * Predict с safety: не залипает, всегда дойдет до цели.
  */
 public final class AuraAI3Screen extends Screen implements QuickImports {
     private final List<AimTarget> targets = new ArrayList<>();
-    private final Random random = new Random();
+    private final List<Particle> particles = new ArrayList<>();
     private final List<TrailPoint> trail = new ArrayList<>();
+    private final Random random = new Random();
 
     private boolean recording = false, predictMode = false, training = false;
     private float trainProgress = 0f;
@@ -32,37 +33,39 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
 
     // Jelly physics
     private float jellyScale = 1f, jellyVel = 0f;
-    private long lastHitTime = 0;
 
-    // Panel jelly (при появлении)
-    private float panelScale = 0.9f;
+    // Panel animation
+    private float panelScale = 0.92f;
     private float panelAlpha = 0f;
+    private float openTime = 0f;
 
-    // Glow pulse
-    private float glowPhase = 0f;
+    // Глобальное время для анимаций
+    private float animTime = 0f;
 
-    private static final float PW = 720f, PH = 500f;
+    // Hover smooth
+    private float[] btnHover = new float[5];
+    private float[] btnActive = new float[5];
+
+    private static final float PW = 740f, PH = 520f;
     private float pX, pY, gX, gY, gW, gH;
-    private float bRecX, bRecY, bTrnX, bTrnY, bPrdX, bPrdY, bStpX, bStpY, bClrX, bClrY;
-    private final float BW = 82f, BH = 24f;
+    private float[] btnX = new float[5], btnY_ = new float[5];
+    private final float BW = 88f, BH = 26f;
+    private final String[] LABELS = {"RECORD", "TRAIN", "PREDICT", "STOP", "CLEAR"};
 
     public AuraAI3Screen() { super(Text.literal("AuraAI3")); }
 
     @Override protected void init() {
         pX = (width - PW) / 2f; pY = (height - PH) / 2f;
-        gX = pX + 18f; gY = pY + 56f; gW = PW - 36f; gH = PH - 110f;
-        float btnY = pY + PH - 40f;
-        float total = BW * 5 + 32f;
+        gX = pX + 20f; gY = pY + 60f; gW = PW - 40f; gH = PH - 116f;
+        float bY = pY + PH - 42f;
+        float total = BW * 5 + 40f;
         float sx = pX + (PW - total) / 2f;
-        bRecX = sx; bRecY = btnY;
-        bTrnX = sx + BW + 8; bTrnY = btnY;
-        bPrdX = sx + (BW + 8) * 2; bPrdY = btnY;
-        bStpX = sx + (BW + 8) * 3; bStpY = btnY;
-        bClrX = sx + (BW + 8) * 4; bClrY = btnY;
-        targets.clear(); trail.clear(); spawned = false;
+        for (int i = 0; i < 5; i++) { btnX[i] = sx + i * (BW + 10); btnY_[i] = bY; }
+
+        targets.clear(); trail.clear(); particles.clear(); spawned = false;
         lastMX = -1; lastMY = -1; virtualX = -1; virtualY = -1;
         recording = false; predictMode = false; training = false;
-        panelScale = 0.92f; panelAlpha = 0f;
+        panelScale = 0.92f; panelAlpha = 0f; openTime = 0f;
     }
 
     @Override public void render(DrawContext ctx, int mx, int my, float delta) {
@@ -73,72 +76,101 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
     private void doRender(DrawContext ctx, int mx, int my, float delta) {
         var m = ctx.getMatrices();
         long now = System.currentTimeMillis();
+        animTime += delta * 0.05f;
 
-        // Panel open animation (jelly spring)
-        panelScale += (1f - panelScale) * 0.12f;
-        panelAlpha = Math.min(1f, panelAlpha + 0.06f);
+        // Panel spring open
+        panelScale += (1f - panelScale) * 0.15f;
+        panelAlpha = Math.min(1f, panelAlpha + 0.05f);
+        openTime = Math.min(1f, openTime + delta * 0.04f);
 
-        // Target jelly bounce
-        jellyVel += (1f - jellyScale) * 0.3f;
-        jellyVel *= 0.65f;
+        // Jelly spring
+        jellyVel += (1f - jellyScale) * 0.35f;
+        jellyVel *= 0.6f;
         jellyScale += jellyVel;
-
-        // Glow pulse
-        glowPhase += delta * 0.04f;
-        float glowPulse = 0.5f + 0.5f * (float)Math.sin(glowPhase);
 
         int alphaMain = (int)(panelAlpha * 255);
 
-        // ═══ FULLSCREEN DIM ═══
+        // ═══ BACKGROUND DIM ═══
         rectangle.render(ShapeProperties.create(m, 0, 0, width, height)
-                .color(ColorUtility.getColor(0, 0, 0, (int)(panelAlpha * 150))).build());
+                .color(ColorUtility.getColor(0, 0, 0, (int)(panelAlpha * 165))).build());
+
+        // ═══ ANIMATED WAVE BACKGROUND (за панелью, фоновое свечение) ═══
+        float wavePhase = animTime;
+        for (int i = 0; i < 3; i++) {
+            float ph = wavePhase + i * 1.2f;
+            float wx = pX + PW / 2f + (float) Math.cos(ph) * 80f;
+            float wy = pY + PH / 2f + (float) Math.sin(ph * 0.7f) * 50f;
+            float r = 180f + 30f * (float) Math.sin(ph * 1.3f);
+            int wAlpha = (int)(15 * panelAlpha);
+            int wColor = i == 0 ? ColorUtility.getColor(80, 160, 255, wAlpha)
+                    : i == 1 ? ColorUtility.getColor(120, 100, 255, wAlpha)
+                    : ColorUtility.getColor(60, 200, 220, wAlpha);
+            rectangle.render(ShapeProperties.create(m, wx - r, wy - r, r * 2, r * 2)
+                    .round(r).color(wColor).build());
+        }
 
         // ═══ LIQUID GLASS PANEL ═══
         float scaledW = PW * panelScale, scaledH = PH * panelScale;
         float spX = pX + (PW - scaledW) / 2f, spY = pY + (PH - scaledH) / 2f;
 
-        // Outer glow (shader-like)
-        int glowAlpha = (int)(30 + 25 * glowPulse);
-        rectangle.render(ShapeProperties.create(m, spX - 3, spY - 3, scaledW + 6, scaledH + 6)
-                .round(16f).color(ColorUtility.getColor(80, 160, 255, glowAlpha)).build());
-        rectangle.render(ShapeProperties.create(m, spX - 1, spY - 1, scaledW + 2, scaledH + 2)
-                .round(15f).color(ColorUtility.getColor(120, 200, 255, (int)(40 * panelAlpha))).build());
+        // Multi-layer glow border (shader-like)
+        float glowPulse = 0.5f + 0.5f * (float) Math.sin(animTime * 2f);
+        for (int i = 5; i > 0; i--) {
+            int gA = (int)((10 + 12 * glowPulse) * panelAlpha * (i / 5f));
+            int gC = ColorUtility.getColor(80 + (int)(40 * glowPulse), 150, 255, gA);
+            rectangle.render(ShapeProperties.create(m, spX - i, spY - i, scaledW + i * 2, scaledH + i * 2)
+                    .round(16f + i).color(gC).build());
+        }
 
-        // Main glass body (frosted glass effect — multi-layer)
+        // Main glass body (3 frosted layers)
         rectangle.render(ShapeProperties.create(m, spX, spY, scaledW, scaledH)
-                .round(14f).color(ColorUtility.getColor(10, 15, 25, (int)(panelAlpha * 200))).build());
-        // Inner frost layer
+                .round(15f).color(ColorUtility.getColor(8, 12, 22, (int)(panelAlpha * 215))).build());
         rectangle.render(ShapeProperties.create(m, spX + 1, spY + 1, scaledW - 2, scaledH - 2)
-                .round(13f).color(ColorUtility.getColor(20, 30, 50, (int)(panelAlpha * 40))).build());
-        // Top reflection (glass highlight)
-        rectangle.render(ShapeProperties.create(m, spX + 4, spY + 3, scaledW - 8, 35)
-                .round(10f).color(ColorUtility.getColor(255, 255, 255, (int)(panelAlpha * 8))).build());
-        // Bottom subtle reflection
-        rectangle.render(ShapeProperties.create(m, spX + 20, spY + scaledH - 50, scaledW - 40, 30)
-                .round(8f).color(ColorUtility.getColor(80, 140, 255, (int)(panelAlpha * 5))).build());
+                .round(14f).color(ColorUtility.getColor(15, 25, 45, (int)(panelAlpha * 80))).build());
+        rectangle.render(ShapeProperties.create(m, spX + 2, spY + 2, scaledW - 4, scaledH - 4)
+                .round(13f).color(ColorUtility.getColor(25, 40, 70, (int)(panelAlpha * 30))).build());
+
+        // Top glass reflection (highlight)
+        rectangle.render(ShapeProperties.create(m, spX + 6, spY + 4, scaledW - 12, 38)
+                .round(11f).color(ColorUtility.getColor(255, 255, 255, (int)(panelAlpha * 14))).build());
+        // Subtle inner shine
+        rectangle.render(ShapeProperties.create(m, spX + 8, spY + 6, 60, 8)
+                .round(4f).color(ColorUtility.getColor(255, 255, 255, (int)(panelAlpha * 22))).build());
 
         // ═══ HEADER ═══
-        Fonts.MNTSB.get(14).drawString(m, "Neuro", pX + 20f, pY + 16f, ColorUtility.getColor(220, 235, 255, alphaMain));
-        Fonts.MNTSB.get(11).drawString(m, "BWorld", pX + 82f, pY + 18f, ColorUtility.getColor(80, 140, 200, alphaMain));
+        Fonts.MNTSB.get(15).drawString(m, "Neuro", pX + 22f, pY + 18f,
+                ColorUtility.getColor(230, 240, 255, alphaMain));
+        Fonts.MNTSB.get(11).drawString(m, "BWorld", pX + 88f, pY + 21f,
+                ColorUtility.getColor(100, 160, 220, alphaMain));
 
         String mode = recording ? "mode=RECORD" : predictMode ? "mode=PREDICT" : "mode=IDLE";
-        String info = mode + "  rec=" + AuraAI3.get().samples.size() + "  rl=on  hist=" + hits;
+        String info = mode + "  rec=" + AuraAI3.get().samples.size() + "  rl=on  hits=" + hits;
         float iw = Fonts.MNTSB.get(9).getStringWidth(info);
-        Fonts.MNTSB.get(9).drawString(m, info, pX + PW - iw - 18f, pY + 18f,
-                ColorUtility.getColor(140, 170, 200, alphaMain));
+        Fonts.MNTSB.get(9).drawString(m, info, pX + PW - iw - 22f, pY + 21f,
+                ColorUtility.getColor(150, 180, 210, alphaMain));
 
-        // ═══ GAME AREA (glass inset) ═══
-        // Outer border glow
-        rectangle.render(ShapeProperties.create(m, gX - 1, gY - 1, gW + 2, gH + 2)
-                .round(12f).color(ColorUtility.getColor(60, 130, 200, (int)(20 * panelAlpha))).build());
+        // Header divider line
+        rectangle.render(ShapeProperties.create(m, pX + 16, pY + 46, PW - 32, 1)
+                .color(ColorUtility.getColor(80, 140, 200, (int)(panelAlpha * 30))).build());
+
+        // ═══ GAME AREA (glass inset with border glow) ═══
+        // Outer glow
+        for (int i = 3; i > 0; i--) {
+            int gA = (int)(8 * panelAlpha * (i / 3f));
+            rectangle.render(ShapeProperties.create(m, gX - i, gY - i, gW + i * 2, gH + i * 2)
+                    .round(13f + i).color(ColorUtility.getColor(60, 130, 200, gA)).build());
+        }
         // Dark inset
         rectangle.render(ShapeProperties.create(m, gX, gY, gW, gH)
-                .round(11f).color(ColorUtility.getColor(3, 5, 12, (int)(panelAlpha * 235))).build());
-        // Inner edge highlight (top)
-        rectangle.render(ShapeProperties.create(m, gX + 3, gY + 2, gW - 6, 2)
-                .round(1f).color(ColorUtility.getColor(100, 180, 255, (int)(panelAlpha * 15))).build());
+                .round(12f).color(ColorUtility.getColor(2, 4, 10, (int)(panelAlpha * 240))).build());
+        // Inner gradient simulation
+        rectangle.render(ShapeProperties.create(m, gX + 2, gY + 2, gW - 4, gH / 3)
+                .round(10f).color(ColorUtility.getColor(15, 25, 45, (int)(panelAlpha * 35))).build());
+        // Top edge highlight
+        rectangle.render(ShapeProperties.create(m, gX + 4, gY + 1, gW - 8, 1)
+                .color(ColorUtility.getColor(120, 180, 255, (int)(panelAlpha * 30))).build());
 
-        // ═══ SPAWN + DRAW TARGETS ═══
+        // ═══ Spawn targets ═══
         if (!spawned && gW > 60) { spawned = true; spawnTarget(); }
         while (targets.size() < 1 && gW > 60) spawnTarget();
 
@@ -147,46 +179,73 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
             activeTarget = t;
             float rad = t.rad * jellyScale;
 
-            // Outer glow ring (shader effect)
-            int tGlowA = (int)(25 + 20 * glowPulse);
-            drawGlowCircle(ctx, t.x, t.y, rad + 10f, ColorUtility.getColor(100, 160, 255, tGlowA));
-            drawGlowCircle(ctx, t.x, t.y, rad + 5f, ColorUtility.getColor(130, 180, 255, tGlowA + 10));
+            // Multi-layer glow
+            int tGlowA = (int)(20 + 15 * glowPulse);
+            drawGlowCircle(ctx, t.x, t.y, rad + 14f, ColorUtility.getColor(80, 140, 255, tGlowA / 2));
+            drawGlowCircle(ctx, t.x, t.y, rad + 8f, ColorUtility.getColor(110, 170, 255, tGlowA));
+            drawGlowCircle(ctx, t.x, t.y, rad + 4f, ColorUtility.getColor(140, 200, 255, tGlowA + 10));
 
-            // Main circle outline
-            drawOutlineCircle(ctx, t.x, t.y, rad, ColorUtility.getColor(140, 190, 255, 200));
+            // Main outline
+            drawOutlineCircle(ctx, t.x, t.y, rad, ColorUtility.getColor(160, 210, 255, 230));
+            drawOutlineCircle(ctx, t.x, t.y, rad - 1f, ColorUtility.getColor(180, 220, 255, 100));
 
-            // Inner dot with glow
+            // Center dot with glow
+            rectangle.render(ShapeProperties.create(m, t.x - 4f, t.y - 4f, 8f, 8f)
+                    .round(4f).color(ColorUtility.getColor(120, 180, 255, 80)).build());
             rectangle.render(ShapeProperties.create(m, t.x - 2.5f, t.y - 2.5f, 5f, 5f)
-                    .round(2.5f).color(ColorUtility.getColor(180, 220, 255, 255)).build());
+                    .round(2.5f).color(ColorUtility.getColor(200, 230, 255, 255)).build());
         }
 
-        // ═══ PREDICT MODE ═══
+        // ═══ PREDICT MODE (с safety) ═══
         if (predictMode && activeTarget != null && AuraAI3.get().trained) {
             if (virtualX < 0) { virtualX = gX + gW / 2f; virtualY = gY + gH / 2f; }
 
             float dx = activeTarget.x - virtualX, dy = activeTarget.y - virtualY;
             float dist = (float) Math.hypot(dx, dy);
-            float yawNorm = MathHelper.clamp(dx / (gW * 0.5f), -1f, 1f);
-            float pitchNorm = MathHelper.clamp(dy / (gH * 0.5f), -1f, 1f);
 
-            float[] step = AuraAI3.get().predict(yawNorm, pitchNorm);
+            float[] step;
+            if (dist < 1f) {
+                step = new float[]{0f, 0f};
+            } else {
+                float yawNorm = MathHelper.clamp(dx / (gW * 0.5f), -1f, 1f);
+                float pitchNorm = MathHelper.clamp(dy / (gH * 0.5f), -1f, 1f);
+                step = AuraAI3.get().predict(yawNorm, pitchNorm);
+
+                // SAFETY: если предикт нулевой/слабый — добавляем smooth-импульс к цели
+                float stepMag = (float) Math.hypot(step[0], step[1]);
+                if (stepMag < 1.5f) {
+                    float smoothSpeed = dist > 30 ? 0.25f : dist > 10 ? 0.18f : 0.12f;
+                    step[0] += dx * smoothSpeed;
+                    step[1] += dy * smoothSpeed;
+                }
+                // Корректируем направление если сеть пошла не туда
+                if (Math.abs(dx) > 2 && Math.signum(step[0]) != Math.signum(dx)) step[0] = dx * 0.15f;
+                if (Math.abs(dy) > 2 && Math.signum(step[1]) != Math.signum(dy)) step[1] = dy * 0.15f;
+                // Зажимаем чтобы не улетело за цель
+                if (Math.abs(step[0]) > Math.abs(dx) * 1.5f) step[0] = dx * 0.6f;
+                if (Math.abs(step[1]) > Math.abs(dy) * 1.5f) step[1] = dy * 0.6f;
+            }
+
             virtualX += step[0]; virtualY += step[1];
             trail.add(new TrailPoint(virtualX, virtualY, now));
 
             if (dist <= activeTarget.rad + 4) {
-                targets.remove(activeTarget); hits++; lastHitTime = now;
-                jellyScale = 1.25f; jellyVel = -0.15f; // Jelly bounce!
+                // HIT! Particles + jelly
+                spawnHitParticles(activeTarget.x, activeTarget.y);
+                targets.remove(activeTarget); hits++;
+                jellyScale = 1.35f; jellyVel = -0.18f;
                 if (mc.player != null) mc.player.playSound(
                         net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK.value(), 0.5f, 1.6f);
             }
 
-            // Crosshair with glow
-            drawGlowCircle(ctx, virtualX, virtualY, 12f, ColorUtility.getColor(255, 80, 80, 30));
-            drawOutlineCircle(ctx, virtualX, virtualY, 7f, ColorUtility.getColor(255, 100, 100, 230));
-            rectangle.render(ShapeProperties.create(m, virtualX - 16f, virtualY - 0.5f, 32f, 1f)
-                    .color(ColorUtility.getColor(255, 100, 100, 160)).build());
-            rectangle.render(ShapeProperties.create(m, virtualX - 0.5f, virtualY - 16f, 1f, 32f)
-                    .color(ColorUtility.getColor(255, 100, 100, 160)).build());
+            // Crosshair with multi-glow
+            drawGlowCircle(ctx, virtualX, virtualY, 16f, ColorUtility.getColor(255, 80, 80, 25));
+            drawGlowCircle(ctx, virtualX, virtualY, 11f, ColorUtility.getColor(255, 100, 100, 50));
+            drawOutlineCircle(ctx, virtualX, virtualY, 7f, ColorUtility.getColor(255, 120, 120, 240));
+            rectangle.render(ShapeProperties.create(m, virtualX - 18f, virtualY - 0.6f, 36f, 1.2f)
+                    .color(ColorUtility.getColor(255, 100, 100, 180)).build());
+            rectangle.render(ShapeProperties.create(m, virtualX - 0.6f, virtualY - 18f, 1.2f, 36f)
+                    .color(ColorUtility.getColor(255, 100, 100, 180)).build());
         } else {
             virtualX = mx; virtualY = my;
             trail.add(new TrailPoint(mx, my, now));
@@ -204,91 +263,147 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
         }
         lastMX = mx; lastMY = my;
 
-        // ═══ TRAIL (glass fade) ═══
-        trail.removeIf(pt -> now - pt.time > 2000);
+        // ═══ TRAIL (gradient fade with glow) ═══
+        trail.removeIf(pt -> now - pt.time > 1800);
         for (int i = 0; i < trail.size() - 1; i++) {
             TrailPoint p1 = trail.get(i), p2 = trail.get(i + 1);
-            float f = 1f - (float)(now - p1.time) / 2000f;
+            float f = 1f - (float)(now - p1.time) / 1800f;
             if (f <= 0) continue;
-            drawLine(ctx, p1.x, p1.y, p2.x, p2.y, 1.4f * f,
-                    ColorUtility.getColor(100, 180, 255, (int)(f * 100)));
+            // Outer glow line
+            drawLine(ctx, p1.x, p1.y, p2.x, p2.y, 2.5f * f,
+                    ColorUtility.getColor(80, 150, 255, (int)(f * 40)));
+            // Bright inner line
+            drawLine(ctx, p1.x, p1.y, p2.x, p2.y, 1.2f * f,
+                    ColorUtility.getColor(140, 200, 255, (int)(f * 140)));
         }
 
-        // ═══ GLASS BUTTONS ═══
-        drawGlassBtn(m, mx, my, bRecX, bRecY, "RECORD", recording);
-        drawGlassBtn(m, mx, my, bTrnX, bTrnY, "TRAIN", training);
-        drawGlassBtn(m, mx, my, bPrdX, bPrdY, "PREDICT", predictMode);
-        drawGlassBtn(m, mx, my, bStpX, bStpY, "STOP", false);
-        drawGlassBtn(m, mx, my, bClrX, bClrY, "CLEAR", false);
+        // ═══ PARTICLES ═══
+        Iterator<Particle> pIt = particles.iterator();
+        while (pIt.hasNext()) {
+            Particle p = pIt.next();
+            p.x += p.vx; p.y += p.vy;
+            p.vx *= 0.92f; p.vy *= 0.92f; p.vy += 0.1f; // gravity
+            p.life -= 0.02f;
+            if (p.life <= 0) { pIt.remove(); continue; }
+            float pSize = 3f * p.life;
+            int pAlpha = (int)(p.life * 220);
+            rectangle.render(ShapeProperties.create(m, p.x - pSize, p.y - pSize, pSize * 2, pSize * 2)
+                    .round(pSize).color(ColorUtility.getColor(p.r, p.g, p.b, pAlpha)).build());
+            // Glow
+            rectangle.render(ShapeProperties.create(m, p.x - pSize * 2, p.y - pSize * 2, pSize * 4, pSize * 4)
+                    .round(pSize * 2).color(ColorUtility.getColor(p.r, p.g, p.b, pAlpha / 4)).build());
+        }
+
+        // ═══ GLASS BUTTONS (с smooth hover) ═══
+        boolean[] active = {recording, training, predictMode, false, false};
+        for (int i = 0; i < 5; i++) {
+            boolean hover = mx >= btnX[i] && mx <= btnX[i] + BW && my >= btnY_[i] && my <= btnY_[i] + BH;
+            btnHover[i] += ((hover ? 1f : 0f) - btnHover[i]) * 0.2f;
+            btnActive[i] += ((active[i] ? 1f : 0f) - btnActive[i]) * 0.15f;
+            drawGlassBtn(m, btnX[i], btnY_[i], LABELS[i], btnHover[i], btnActive[i], alphaMain);
+        }
 
         // ═══ TRAINING OVERLAY ═══
         if (training) {
             rectangle.render(ShapeProperties.create(m, gX, gY, gW, gH)
-                    .round(11f).color(ColorUtility.getColor(3, 5, 12, 230)).build());
+                    .round(12f).color(ColorUtility.getColor(2, 4, 10, 235)).build());
             String txt = "TRAINING MLP: " + (int)(trainProgress * 100) + "%";
-            Fonts.MNTSB.get(12).drawCenteredString(m, txt, gX + gW / 2f, gY + gH / 2f - 12, 0xFF8ABAFF);
-            float bw = 240f, bh = 6f, bx = gX + (gW - bw) / 2f, by = gY + gH / 2f + 14;
-            rectangle.render(ShapeProperties.create(m, bx, by, bw, bh).round(3f)
-                    .color(ColorUtility.getColor(20, 35, 60, 255)).build());
-            rectangle.render(ShapeProperties.create(m, bx, by, bw * trainProgress, bh).round(3f)
-                    .color(ColorUtility.getColor(80, 160, 255, 255)).build());
-            // Glow on progress tip
+            Fonts.MNTSB.get(13).drawCenteredString(m, txt, gX + gW / 2f, gY + gH / 2f - 14, 0xFF9ACDFF);
+            float bw = 280f, bh = 7f, bx = gX + (gW - bw) / 2f, by = gY + gH / 2f + 14;
+            // Bar bg with glass
+            rectangle.render(ShapeProperties.create(m, bx - 1, by - 1, bw + 2, bh + 2)
+                    .round(4f).color(ColorUtility.getColor(60, 100, 160, 80)).build());
+            rectangle.render(ShapeProperties.create(m, bx, by, bw, bh).round(3.5f)
+                    .color(ColorUtility.getColor(15, 25, 45, 255)).build());
+            // Progress with gradient sim (3 layers)
+            float pw = bw * trainProgress;
+            rectangle.render(ShapeProperties.create(m, bx, by, pw, bh).round(3.5f)
+                    .color(ColorUtility.getColor(60, 130, 230, 255)).build());
+            rectangle.render(ShapeProperties.create(m, bx, by, pw, bh / 2f).round(3f)
+                    .color(ColorUtility.getColor(140, 200, 255, 200)).build());
+            // Glow tip
             if (trainProgress > 0.01f) {
-                float tipX = bx + bw * trainProgress;
-                rectangle.render(ShapeProperties.create(m, tipX - 4, by - 2, 8, bh + 4).round(4f)
-                        .color(ColorUtility.getColor(120, 200, 255, 100)).build());
+                float tipX = bx + pw;
+                rectangle.render(ShapeProperties.create(m, tipX - 6, by - 3, 12, bh + 6).round(6f)
+                        .color(ColorUtility.getColor(180, 220, 255, 120)).build());
             }
         }
 
-        // ═══ BOTTOM STATUS ═══
+        // Bottom status
         String st = String.format("RECORD: %d samples.", AuraAI3.get().samples.size());
-        Fonts.MNTSB.get(10).drawString(m, st, pX + 20f, pY + PH - 16f,
-                ColorUtility.getColor(100, 130, 160, alphaMain));
+        Fonts.MNTSB.get(10).drawString(m, st, pX + 22f, pY + PH - 18f,
+                ColorUtility.getColor(120, 150, 180, alphaMain));
     }
 
     private void drawGlassBtn(net.minecraft.client.util.math.MatrixStack m,
-                              int mx, int my, float x, float y, String label, boolean active) {
-        boolean hover = mx >= x && mx <= x + BW && my >= y && my <= y + BH;
-        // Button body
-        int bg = active ? ColorUtility.getColor(60, 140, 255, 140)
-                : ColorUtility.getColor(30, 50, 70, hover ? 120 : 70);
-        rectangle.render(ShapeProperties.create(m, x, y, BW, BH).round(7f).color(bg).build());
-        // Glass top highlight
-        rectangle.render(ShapeProperties.create(m, x + 2, y + 2, BW - 4, BH / 2 - 2)
-                .round(5f).color(ColorUtility.getColor(255, 255, 255, active ? 12 : 6)).build());
-        // Border
-        if (active || hover) {
-            rectangle.render(ShapeProperties.create(m, x - 0.5f, y - 0.5f, BW + 1, BH + 1)
-                    .round(7.5f).color(ColorUtility.getColor(100, 180, 255, active ? 60 : 30)).build());
-            rectangle.render(ShapeProperties.create(m, x, y, BW, BH).round(7f).color(bg).build());
+                              float x, float y, String label, float hover, float active, int globalA) {
+        float hoverF = MathHelper.clamp(hover, 0f, 1f);
+        float activeF = MathHelper.clamp(active, 0f, 1f);
+
+        // Outer glow when active/hover
+        if (activeF > 0.01f || hoverF > 0.01f) {
+            int gA = (int)((20 + 50 * activeF + 15 * hoverF));
+            rectangle.render(ShapeProperties.create(m, x - 2, y - 2, BW + 4, BH + 4)
+                    .round(9f).color(ColorUtility.getColor(80, 160, 255, gA)).build());
         }
-        Fonts.MNTSB.get(10).drawCenteredString(m, label, x + BW / 2f, y + 7f,
-                active ? 0xFFFFFFFF : (hover ? 0xFFCCDDEE : 0xFF8899AA));
+
+        // Body
+        int rBg = (int) MathHelper.lerp(activeF, 30, 60);
+        int gBg = (int) MathHelper.lerp(activeF, 50, 130);
+        int bBg = (int) MathHelper.lerp(activeF, 80, 230);
+        int aBg = (int) (75 + 60 * activeF + 40 * hoverF);
+        rectangle.render(ShapeProperties.create(m, x, y, BW, BH).round(7f)
+                .color(ColorUtility.getColor(rBg, gBg, bBg, aBg)).build());
+
+        // Top highlight
+        rectangle.render(ShapeProperties.create(m, x + 2, y + 2, BW - 4, BH / 2f - 1)
+                .round(5f).color(ColorUtility.getColor(255, 255, 255, (int)(8 + 12 * activeF + 5 * hoverF))).build());
+
+        // Inner border
+        if (activeF > 0.5f) {
+            rectangle.render(ShapeProperties.create(m, x + 1, y + 1, BW - 2, BH - 2)
+                    .round(6f).color(ColorUtility.getColor(150, 200, 255, (int)(40 * activeF))).build());
+            rectangle.render(ShapeProperties.create(m, x + 2, y + 2, BW - 4, BH - 4)
+                    .round(5f).color(ColorUtility.getColor(rBg, gBg, bBg, aBg)).build());
+            rectangle.render(ShapeProperties.create(m, x + 2, y + 2, BW - 4, BH / 2f - 1)
+                    .round(5f).color(ColorUtility.getColor(255, 255, 255, (int)(20 * activeF))).build());
+        }
+
+        int textC = activeF > 0.5f ? 0xFFFFFFFF : (hoverF > 0.5f ? 0xFFD0E0F0 : 0xFF8FA3B8);
+        Fonts.MNTSB.get(10).drawCenteredString(m, label, x + BW / 2f, y + 8f, textC);
     }
 
     @Override public boolean mouseClicked(double mx, double my, int btn) {
         if (btn == 0 && !training) {
-            if (inBox(mx, my, bRecX, bRecY)) { recording = !recording; predictMode = false; return true; }
-            if (inBox(mx, my, bTrnX, bTrnY)) {
+            if (inBtn(mx, my, 0)) { recording = !recording; predictMode = false; return true; }
+            if (inBtn(mx, my, 1)) {
                 if (AuraAI3.get().samples.size() < 10) AuraAI3.chatSink.accept("§b[AuraAI3] §cМинимум 10 сэмплов!");
                 else { recording = false; predictMode = false; training = true; trainProgress = 0f;
                     AuraAI3.get().trainModel(5000, p -> { trainProgress = p; if (p >= 1f) training = false; }); }
                 return true;
             }
-            if (inBox(mx, my, bPrdX, bPrdY)) {
-                if (AuraAI3.get().trained) { predictMode = !predictMode; recording = false; virtualX = (float)mx; virtualY = (float)my; }
-                else AuraAI3.chatSink.accept("§b[AuraAI3] §cОбучи сначала!");
+            if (inBtn(mx, my, 2)) {
+                if (AuraAI3.get().trained) {
+                    predictMode = !predictMode; recording = false;
+                    virtualX = (float)mx; virtualY = (float)my;
+                } else AuraAI3.chatSink.accept("§b[AuraAI3] §cОбучи сначала!");
                 return true;
             }
-            if (inBox(mx, my, bStpX, bStpY)) { recording = false; predictMode = false; return true; }
-            if (inBox(mx, my, bClrX, bClrY)) { AuraAI3.get().clear(); hits = 0; misses = 0; targets.clear(); spawned = false; predictMode = false; return true; }
+            if (inBtn(mx, my, 3)) { recording = false; predictMode = false; return true; }
+            if (inBtn(mx, my, 4)) {
+                AuraAI3.get().clear(); hits = 0; misses = 0;
+                targets.clear(); spawned = false; predictMode = false;
+                return true;
+            }
 
             if (!predictMode) {
                 for (AimTarget t : targets) {
                     if (Math.hypot(mx - t.x, my - t.y) <= t.rad + 6) {
-                        targets.remove(t); hits++; lastHitTime = System.currentTimeMillis();
-                        jellyScale = 1.3f; jellyVel = -0.2f;
-                        if (mc.player != null) mc.player.playSound(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, 1.5f);
+                        spawnHitParticles(t.x, t.y);
+                        targets.remove(t); hits++;
+                        jellyScale = 1.4f; jellyVel = -0.22f;
+                        if (mc.player != null) mc.player.playSound(
+                                net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, 1.5f);
                         return true;
                     }
                 }
@@ -298,39 +413,59 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
         return super.mouseClicked(mx, my, btn);
     }
 
-    private boolean inBox(double mx, double my, float x, float y) {
-        return mx >= x && mx <= x + BW && my >= y && my <= y + BH;
+    private boolean inBtn(double mx, double my, int i) {
+        return mx >= btnX[i] && mx <= btnX[i] + BW && my >= btnY_[i] && my <= btnY_[i] + BH;
+    }
+
+    private void spawnHitParticles(float x, float y) {
+        for (int i = 0; i < 14; i++) {
+            Particle p = new Particle();
+            p.x = x; p.y = y;
+            float ang = random.nextFloat() * (float) Math.PI * 2f;
+            float spd = 1.5f + random.nextFloat() * 3f;
+            p.vx = (float) Math.cos(ang) * spd;
+            p.vy = (float) Math.sin(ang) * spd;
+            p.life = 0.7f + random.nextFloat() * 0.4f;
+            // Random blue/purple/cyan
+            int variant = random.nextInt(3);
+            if (variant == 0) { p.r = 100; p.g = 180; p.b = 255; }
+            else if (variant == 1) { p.r = 150; p.g = 130; p.b = 255; }
+            else { p.r = 180; p.g = 220; p.b = 255; }
+            particles.add(p);
+        }
     }
 
     private void spawnTarget() {
         AimTarget t = new AimTarget();
         t.rad = 14f + random.nextFloat() * 5f;
-        t.x = gX + t.rad + random.nextFloat() * (gW - t.rad * 2);
-        t.y = gY + t.rad + random.nextFloat() * (gH - t.rad * 2);
+        t.x = gX + t.rad + 30 + random.nextFloat() * (gW - t.rad * 2 - 60);
+        t.y = gY + t.rad + 30 + random.nextFloat() * (gH - t.rad * 2 - 60);
         targets.add(t);
     }
 
     private void drawLine(DrawContext ctx, float x1, float y1, float x2, float y2, float w, int c) {
         var m = ctx.getMatrices(); float dx=x2-x1,dy=y2-y1; float d=(float)Math.hypot(dx,dy); if(d==0)return;
-        int steps=(int)Math.max(1,d/0.7f); for(int i=0;i<=steps;i++){float t=(float)i/steps;float px=x1+dx*t,py=y1+dy*t;
-        rectangle.render(ShapeProperties.create(m,px-w/2,py-w/2,w,w).round(w/2).color(c).build());}
+        int steps=(int)Math.max(1,d/0.7f);
+        for(int i=0;i<=steps;i++){float t=(float)i/steps;float px=x1+dx*t,py=y1+dy*t;
+            rectangle.render(ShapeProperties.create(m,px-w/2,py-w/2,w,w).round(w/2).color(c).build());}
     }
 
     private void drawOutlineCircle(DrawContext ctx, float cx, float cy, float r, int color) {
-        var m=ctx.getMatrices(); int seg=48; double step=2*Math.PI/seg;
+        var m=ctx.getMatrices(); int seg=52; double step=2*Math.PI/seg;
         for(int i=0;i<seg;i++){float px=cx+(float)(r*Math.cos(step*i)),py=cy+(float)(r*Math.sin(step*i));
-        rectangle.render(ShapeProperties.create(m,px-0.8f,py-0.8f,1.6f,1.6f).round(0.8f).color(color).build());}
+            rectangle.render(ShapeProperties.create(m,px-0.85f,py-0.85f,1.7f,1.7f).round(0.85f).color(color).build());}
     }
 
     private void drawGlowCircle(DrawContext ctx, float cx, float cy, float r, int color) {
-        var m=ctx.getMatrices(); int seg=24; double step=2*Math.PI/seg;
+        var m=ctx.getMatrices(); int seg=20; double step=2*Math.PI/seg;
         for(int i=0;i<seg;i++){float px=cx+(float)(r*Math.cos(step*i)),py=cy+(float)(r*Math.sin(step*i));
-        rectangle.render(ShapeProperties.create(m,px-3f,py-3f,6f,6f).round(3f).color(color).build());}
+            rectangle.render(ShapeProperties.create(m,px-3.5f,py-3.5f,7f,7f).round(3.5f).color(color).build());}
     }
 
     @Override public boolean shouldCloseOnEsc() { return true; }
     @Override public void renderBackground(DrawContext ctx, int mx, int my, float delta) {}
 
-    private static class TrailPoint { float x,y; long time; TrailPoint(float x,float y,long t){this.x=x;this.y=y;this.time=t;}}
-    private static class AimTarget { float x,y,rad; }
+    private static class TrailPoint { float x, y; long time; TrailPoint(float x, float y, long t){this.x=x;this.y=y;this.time=t;}}
+    private static class AimTarget { float x, y, rad; }
+    private static class Particle { float x, y, vx, vy, life; int r, g, b; }
 }
