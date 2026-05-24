@@ -84,6 +84,26 @@ public final class AuraAI3 {
         tryLoadModel();
     }
 
+    // ═══ BACKWARD COMPAT: для AiAura3Command, AuraAI3TrainerScreen, Aura.java ═══
+    public final List<Gesture> gestures = new ArrayList<>();
+
+    public synchronized void addGesture(List<Float> yaws, List<Float> pitches, float targetAngle) {
+        if (yaws.size() < 3) return;
+        Gesture g = new Gesture();
+        g.dYaw = new float[yaws.size()];
+        g.dPitch = new float[pitches.size()];
+        for (int i = 0; i < yaws.size(); i++) { g.dYaw[i] = yaws.get(i); g.dPitch[i] = pitches.get(i); }
+        g.totalAngle = targetAngle;
+        gestures.add(g);
+    }
+
+    public static final class Gesture {
+        public float[] dYaw, dPitch;
+        public float totalAngle, sumYaw, sumPitch;
+    }
+
+    // ═══ НОВЫЙ API ═══
+
     /** Записывает кадр: (dx_norm, dy_norm) → (mvx, mvy) */
     public synchronized void addRow(float dxN, float dyN, float mvx, float mvy) {
         int marker = episodeBoundary ? 1 : 0;
