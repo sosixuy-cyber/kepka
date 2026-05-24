@@ -2,16 +2,21 @@ package ru.etc1337.client.modules.impl.combat.aura.ai3;
 
 import ai.djl.Model;
 import ai.djl.ndarray.NDArray;
+import ai.djl.ndarray.NDList;
 import ai.djl.ndarray.NDManager;
 import ai.djl.ndarray.types.Shape;
 import ai.djl.nn.Activation;
+import ai.djl.nn.Block;
+import ai.djl.nn.Parameter;
 import ai.djl.nn.SequentialBlock;
 import ai.djl.nn.core.Linear;
 import ai.djl.training.DefaultTrainingConfig;
 import ai.djl.training.EasyTrain;
+import ai.djl.training.ParameterStore;
 import ai.djl.training.Trainer;
 import ai.djl.training.dataset.ArrayDataset;
-import ai.djl.training.initializer.NormalInitializer;
+import ai.djl.training.dataset.Batch;
+import ai.djl.training.initializer.XavierInitializer;
 import ai.djl.training.loss.Loss;
 import ai.djl.training.optimizer.Optimizer;
 import ai.djl.training.tracker.Tracker;
@@ -20,224 +25,402 @@ import com.google.gson.GsonBuilder;
 import net.minecraft.client.MinecraftClient;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * AuraAI3 v6 — Обучение на нативном PyTorch через DJL.
- * Сеть: 2 → 64 → 32 → 16 → 2  (yaw_norm, pitch_norm → move_dyaw, move_dpitch)
- * Optimizer: Adam, Loss: MSE/L2, 5000 epochs, batch=64, LeakyReLU
+ * AuraAI3 v8 — Sliding Window MLP с обучением как в MouseMovementPredictor.
  *
- * После обучения веса экспортируются в Java-массивы для быстрого predict без DJL overhead.
+ * Архитектура:
+ *   Вход: 20 фреймов × 2 фичи (dxN, dyN) = 40 чисел
+ *   40 → 128 → 64 → 32 → 2 (ReLU + Xavier)
+ *   Loss: L2, Adam 1e-3, 1000 epochs
+ *
+ * Запись: при движении мыши пишем (dxN, dyN, mvx, mvy, episode_start).
+ * Predict: окно последних 20 кадров → нейронка → шаг (px или градусы).
  */
 public final class AuraAI3 {
+    public static final int SEQ_LEN = 20;
+    public static final int FEATURES = 2;
+    public static final int IN_DIM = SEQ_LEN * FEATURES;
+    public static final int OUT_DIM = 2;
+    public static final double STEP_SCALE_PX_TRAIN = 30.0;
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static AuraAI3 INSTANCE;
     public static volatile Consumer<String> chatSink = System.out::println;
 
-    public final List<Gesture> gestures = new ArrayList<>();
-    public final transient List<TrainingSample> samples = new ArrayList<>();
-    public TorchMLP mlp = new TorchMLP();
+    // Записанные кадры: (dxN, dyN, mvx, mvy, episode_start)
+    public final transient List<double[]> recordedRows = new ArrayList<>();
+
     public boolean trained = false;
     public transient float lastLoss = Float.MAX_VALUE;
+
+    // DJL ресурсы (transient — не сериализуются)
+    private transient NDManager djlManager;
+    private transient Model djlModel;
+    private transient Block block;
+    private transient ParameterStore parameterStore;
+
+    // Sliding window для predict
+    private transient final ArrayDeque<float[]> seqBuffer = new ArrayDeque<>(SEQ_LEN);
+    private transient boolean episodeBoundary = true;
 
     public static synchronized AuraAI3 get() {
         if (INSTANCE == null) INSTANCE = load();
         return INSTANCE;
     }
 
-    public synchronized void addSample(float yawNorm, float pitchNorm, float moveDyaw, float moveDpitch) {
-        samples.add(new TrainingSample(yawNorm, pitchNorm, moveDyaw, moveDpitch));
+    private AuraAI3() {
+        try {
+            djlManager = NDManager.newBaseManager();
+        } catch (Throwable t) {
+            chatSink.accept("§c[AuraAI3] DJL init failed: " + t.getMessage());
+        }
+        loadCsv();
+        tryLoadModel();
     }
 
-    public synchronized void addGesture(List<Float> yaws, List<Float> pitches, float targetAngle) {
-        if (yaws.size() < 3) return;
-        Gesture g = new Gesture();
-        g.dYaw = new float[yaws.size()];
-        g.dPitch = new float[pitches.size()];
-        float sumY = 0, sumP = 0;
-        for (int i = 0; i < yaws.size(); i++) {
-            g.dYaw[i] = yaws.get(i); g.dPitch[i] = pitches.get(i);
-            sumY += Math.abs(g.dYaw[i]); sumP += Math.abs(g.dPitch[i]);
-        }
-        g.totalAngle = targetAngle; g.sumYaw = sumY; g.sumPitch = sumP;
-        gestures.add(g); save();
+    /** Записывает кадр: (dx_norm, dy_norm) → (mvx, mvy) */
+    public synchronized void addRow(float dxN, float dyN, float mvx, float mvy) {
+        int marker = episodeBoundary ? 1 : 0;
+        episodeBoundary = false;
+        recordedRows.add(new double[]{dxN, dyN, mvx, mvy, marker});
     }
 
-    public synchronized Gesture findBestGesture(float targetAngle) {
-        if (gestures.isEmpty()) return null;
-        Gesture best = null; float minDiff = Float.MAX_VALUE;
-        for (Gesture g : gestures) {
-            float d = Math.abs(g.totalAngle - targetAngle);
-            if (d < minDiff) { minDiff = d; best = g; }
-        }
-        return best;
+    /** Помечаем границу эпизода (смена цели, начало записи) */
+    public synchronized void markEpisodeBoundary() {
+        episodeBoundary = true;
+        seqBuffer.clear();
     }
+
+    public int sampleCount() { return recordedRows.size(); }
+
+    // ════════════════════ ОБУЧЕНИЕ ════════════════════
 
     public synchronized void trainModel(int epochs, Consumer<Float> progressCallback) {
-        if (samples.size() < 10) {
-            chatSink.accept("§b[AuraAI3] §cМинимум 10 сэмплов!");
+        if (recordedRows.size() < 32) {
+            chatSink.accept("§c[AuraAI3] Нужно минимум 32 кадра, сейчас: " + recordedRows.size());
             progressCallback.accept(1f);
             return;
         }
         new Thread(() -> {
-            try { trainPyTorch(epochs, progressCallback); }
+            try { runTraining(epochs, progressCallback); }
             catch (Throwable t) {
                 t.printStackTrace();
-                chatSink.accept("§c[AuraAI3] PyTorch ошибка: " + t.getMessage());
+                chatSink.accept("§c[AuraAI3] Train error: " + t.getMessage());
                 progressCallback.accept(1f);
             }
-        }, "AuraAI3-PyTorch").start();
+        }, "AuraAI3-Train").start();
     }
 
-    /** Обучение через DJL+PyTorch (нативный CPU) */
-    private void trainPyTorch(int epochs, Consumer<Float> progressCallback) throws Exception {
-        int n = samples.size();
-        chatSink.accept("§b[AuraAI3] §eЗапуск PyTorch (CPU)... samples=" + n);
+    private void runTraining(int epochs, Consumer<Float> progress) throws Exception {
+        saveCsv();
 
-        // Нормализация выходов
-        float maxMove = 1f;
-        for (TrainingSample s : samples) {
-            maxMove = Math.max(maxMove, Math.max(Math.abs(s.moveDyaw), Math.abs(s.moveDpitch)));
-        }
-        final float maxMoveF = maxMove;
+        float[][][] xy = buildXYPair();
+        float[][] X = xy[0];
+        float[][] Y = xy[1];
+        int n = X.length;
+        if (n < 8) throw new IllegalStateException("not enough samples: " + n);
 
-        try (NDManager mgr = NDManager.newBaseManager()) {
-            float[] inputData = new float[n * 2];
-            float[] targetData = new float[n * 2];
-            for (int i = 0; i < n; i++) {
-                TrainingSample s = samples.get(i);
-                inputData[i * 2] = s.yawNorm;
-                inputData[i * 2 + 1] = s.pitchNorm;
-                targetData[i * 2] = s.moveDyaw / maxMoveF;
-                targetData[i * 2 + 1] = s.moveDpitch / maxMoveF;
+        chatSink.accept("§b[AuraAI3] §eОбучение PyTorch... samples=" + n + " epochs=" + epochs);
+
+        Path modelDir = modelDir();
+        Files.createDirectories(modelDir);
+
+        try (Model m = buildModel();
+             NDManager mgr = NDManager.newBaseManager()) {
+
+            // Warm-start если веса уже есть
+            Path paramsFile = findParamsFile(modelDir);
+            if (paramsFile != null) {
+                try {
+                    m.load(modelDir, "aura_ai3");
+                    chatSink.accept("§b[AuraAI3] §7warm-start from " + paramsFile.getFileName());
+                } catch (Exception ignored) {}
             }
 
-            NDArray inputArr = mgr.create(inputData, new Shape(n, 2));
-            NDArray targetArr = mgr.create(targetData, new Shape(n, 2));
+            // Плоские NDArray
+            float[] flatX = new float[n * IN_DIM];
+            float[] flatY = new float[n * OUT_DIM];
+            for (int i = 0; i < n; i++) {
+                System.arraycopy(X[i], 0, flatX, i * IN_DIM, IN_DIM);
+                System.arraycopy(Y[i], 0, flatY, i * OUT_DIM, OUT_DIM);
+            }
+            NDArray xArr = mgr.create(flatX, new Shape(n, IN_DIM));
+            NDArray yArr = mgr.create(flatY, new Shape(n, OUT_DIM));
 
-            ArrayDataset dataset = new ArrayDataset.Builder()
-                    .setData(inputArr)
-                    .optLabels(targetArr)
-                    .setSampling(64, true)
+            int batchSize = Math.max(8, Math.min(64, n / 8));
+            ArrayDataset ds = new ArrayDataset.Builder()
+                    .setData(xArr).optLabels(yArr)
+                    .setSampling(batchSize, true)
                     .build();
 
-            // Сеть: 2 → 64 → 32 → 16 → 2 с LeakyReLU
-            SequentialBlock net = new SequentialBlock();
-            net.add(Linear.builder().setUnits(64).build());
-            net.add(Activation::leakyRelu);
-            net.add(Linear.builder().setUnits(32).build());
-            net.add(Activation::leakyRelu);
-            net.add(Linear.builder().setUnits(16).build());
-            net.add(Activation::leakyRelu);
-            net.add(Linear.builder().setUnits(2).build());
+            Optimizer opt = Optimizer.adam()
+                    .optLearningRateTracker(Tracker.fixed(1e-3f))
+                    .build();
+            DefaultTrainingConfig cfg = new DefaultTrainingConfig(Loss.l2Loss())
+                    .optOptimizer(opt)
+                    .optInitializer(new XavierInitializer(), Parameter.Type.WEIGHT.toString());
 
-            try (Model model = Model.newInstance("aura_ai3")) {
-                model.setBlock(net);
+            Loss lossFn = Loss.l2Loss();
+            float bestLoss = Float.MAX_VALUE;
 
-                Tracker lr = Tracker.fixed(0.003f);
-                Optimizer adam = Optimizer.adam().optLearningRateTracker(lr).build();
+            try (Trainer trainer = m.newTrainer(cfg)) {
+                trainer.initialize(new Shape(1, IN_DIM));
 
-                DefaultTrainingConfig cfg = new DefaultTrainingConfig(Loss.l2Loss())
-                        .optOptimizer(adam)
-                        .optInitializer(new NormalInitializer(0.1f), "weight");
-
-                try (Trainer trainer = model.newTrainer(cfg)) {
-                    trainer.initialize(new Shape(1, 2));
-                    float bestLoss = Float.MAX_VALUE;
-
-                    for (int epoch = 0; epoch < epochs; epoch++) {
-                        float epochLoss = 0f; int batches = 0;
-                        for (var batch : trainer.iterateDataset(dataset)) {
-                            EasyTrain.trainBatch(trainer, batch);
-                            trainer.step();
-                            float l = trainer.getLoss().getAccumulator("train_all").floatValue();
-                            epochLoss += l; batches++;
-                            batch.close();
-                        }
-                        trainer.notifyListeners(l -> l.onEpoch(trainer));
-                        if (batches > 0) epochLoss /= batches;
-                        if (epochLoss < bestLoss) bestLoss = epochLoss;
-
-                        if (epoch % 20 == 0 || epoch == epochs - 1) {
-                            progressCallback.accept((float) epoch / epochs);
-                        }
-                        if (epoch % 200 == 0) {
-                            chatSink.accept(String.format("§b[AuraAI3] §7epoch=%d loss=%.5f", epoch, epochLoss));
-                        }
+                for (int epoch = 0; epoch < epochs; epoch++) {
+                    float epochLoss = 0f; int nBatches = 0;
+                    for (Batch b : trainer.iterateDataset(ds)) {
+                        EasyTrain.trainBatch(trainer, b);
+                        trainer.step();
+                        try (NDManager scope = mgr.newSubManager()) {
+                            NDArray pred = trainer.forward(b.getData()).singletonOrThrow();
+                            NDArray loss = lossFn.evaluate(b.getLabels(), new NDList(pred));
+                            epochLoss += loss.getFloat();
+                        } catch (Exception ignored) {}
+                        nBatches++;
+                        b.close();
                     }
+                    trainer.notifyListeners(l -> l.onEpoch(trainer));
+                    float avg = nBatches > 0 ? epochLoss / nBatches : 0f;
+                    if (avg < bestLoss) bestLoss = avg;
 
-                    extractWeights(model);
-                    this.mlp.maxMove = maxMoveF;
-                    this.lastLoss = bestLoss;
-                    this.trained = true;
-                    save();
-                    chatSink.accept(String.format("§b[AuraAI3] §aPyTorch готово! loss=%.5f", bestLoss));
+                    if (epoch % 20 == 0 || epoch == epochs - 1) {
+                        progress.accept((float) epoch / epochs);
+                    }
+                    if (epoch % 100 == 0) {
+                        chatSink.accept(String.format("§b[AuraAI3] §7ep=%d loss=%.5f", epoch, avg));
+                    }
                 }
             }
+
+            // Сохраняем
+            m.save(modelDir, "aura_ai3");
+            chatSink.accept(String.format("§b[AuraAI3] §aГотово! loss=%.5f saved=%s",
+                    bestLoss, modelDir.resolve("aura_ai3-0000.params")));
         }
-        progressCallback.accept(1f);
+
+        this.lastLoss = bestLoss;
+        this.trained = true;
+        save();
+        tryLoadModel();
+        progress.accept(1f);
     }
 
-    /** Извлекаем веса из обученной DJL модели в наш TorchMLP формат для быстрого predict */
-    private void extractWeights(Model model) {
-        var params = model.getBlock().getParameters();
-        int[][] shapes = {{2, 64}, {64, 32}, {32, 16}, {16, 2}};
-        float[][][] weights = new float[4][][];
-        float[][] biases = new float[4][];
-
-        int linearIdx = 0;
-        for (var pair : params) {
-            String name = pair.getKey().toLowerCase();
-            NDArray arr = pair.getValue().getArray();
-            if (name.contains("weight")) {
-                int li = linearIdx;
-                int rows = shapes[li][0], cols = shapes[li][1];
-                float[] flat = arr.toFloatArray();
-                weights[li] = new float[rows][cols];
-                if (flat.length == rows * cols) {
-                    // DJL Linear weight shape: (out_features, in_features) = (cols, rows)
-                    // транспонируем в (rows, cols) = (in, out)
-                    for (int i = 0; i < rows; i++)
-                        for (int j = 0; j < cols; j++)
-                            weights[li][i][j] = flat[j * rows + i];
-                }
-            } else if (name.contains("bias")) {
-                biases[linearIdx] = arr.toFloatArray();
-                linearIdx++;
-                if (linearIdx >= 4) break;
+    /** Сборка sliding window пар (X: 40, Y: 2) с учётом episode markers */
+    private float[][][] buildXYPair() {
+        // Делим на эпизоды по episode_start
+        List<int[]> segments = new ArrayList<>();
+        int segStart = 0;
+        for (int i = 0; i < recordedRows.size(); i++) {
+            if (i > 0 && (int) recordedRows.get(i)[4] == 1) {
+                segments.add(new int[]{segStart, i});
+                segStart = i;
             }
         }
+        segments.add(new int[]{segStart, recordedRows.size()});
 
-        mlp.w1 = weights[0]; mlp.b1 = biases[0];
-        mlp.w2 = weights[1]; mlp.b2 = biases[1];
-        mlp.w3 = weights[2]; mlp.b3 = biases[2];
-        mlp.w4 = weights[3]; mlp.b4 = biases[3];
+        List<float[]> Xs = new ArrayList<>();
+        List<float[]> Ys = new ArrayList<>();
+
+        for (int[] seg : segments) {
+            int s = seg[0], e = seg[1];
+            for (int i = s; i < e; i++) {
+                float[] x = new float[IN_DIM];
+                int slot = SEQ_LEN - 1;
+                for (int k = i; k >= s && slot >= 0; k--, slot--) {
+                    x[slot * 2]     = (float) recordedRows.get(k)[0];
+                    x[slot * 2 + 1] = (float) recordedRows.get(k)[1];
+                }
+                // padding первым кадром
+                if (slot >= 0) {
+                    int firstFilled = slot + 1;
+                    float fx = x[firstFilled * 2];
+                    float fy = x[firstFilled * 2 + 1];
+                    for (int k = slot; k >= 0; k--) {
+                        x[k * 2] = fx;
+                        x[k * 2 + 1] = fy;
+                    }
+                }
+                double[] r = recordedRows.get(i);
+                float clampX = (float) Math.max(-1.0, Math.min(1.0, r[2] / STEP_SCALE_PX_TRAIN));
+                float clampY = (float) Math.max(-1.0, Math.min(1.0, r[3] / STEP_SCALE_PX_TRAIN));
+                Xs.add(x);
+                Ys.add(new float[]{clampX, clampY});
+            }
+        }
+        return new float[][][]{
+                Xs.toArray(new float[0][]),
+                Ys.toArray(new float[0][])
+        };
     }
 
-    public float[] predict(float yawNorm, float pitchNorm) {
-        if (!trained || mlp == null) return new float[]{0f, 0f};
-        return mlp.forward(yawNorm, pitchNorm);
+    private static Model buildModel() {
+        Model m = Model.newInstance("aura_ai3");
+        SequentialBlock mlp = new SequentialBlock()
+                .add(Linear.builder().setUnits(128).build())
+                .add(Activation::relu)
+                .add(Linear.builder().setUnits(64).build())
+                .add(Activation::relu)
+                .add(Linear.builder().setUnits(32).build())
+                .add(Activation::relu)
+                .add(Linear.builder().setUnits(OUT_DIM).build());
+        m.setBlock(mlp);
+        return m;
     }
+
+    // ════════════════════ PREDICT ════════════════════
+
+    /**
+     * Predict со sliding window. Возвращает (mvx, mvy) в "model units".
+     * Чтобы получить пиксели/градусы — умножь на свою STEP_SCALE.
+     */
+    public float[] predict(float dxN, float dyN) {
+        if (!trained || block == null || parameterStore == null) {
+            return new float[]{0f, 0f};
+        }
+        // Обновляем sliding window
+        if (seqBuffer.size() < SEQ_LEN) {
+            // Заполняем стартовым состоянием
+            seqBuffer.clear();
+            for (int i = 0; i < SEQ_LEN; i++) seqBuffer.addLast(new float[]{dxN, dyN});
+        } else {
+            seqBuffer.pollFirst();
+            seqBuffer.addLast(new float[]{dxN, dyN});
+        }
+
+        try (NDManager scope = djlManager.newSubManager()) {
+            float[] flat = new float[IN_DIM];
+            int t = 0;
+            for (float[] row : seqBuffer) {
+                System.arraycopy(row, 0, flat, t, FEATURES);
+                t += FEATURES;
+            }
+            NDArray in = scope.create(flat, new Shape(1, IN_DIM));
+            NDList out = block.forward(parameterStore, new NDList(in), false);
+            float[] arr = out.singletonOrThrow().toFloatArray();
+            out.close();
+            return new float[]{arr[0], arr[1]};
+        } catch (Throwable e) {
+            return new float[]{0f, 0f};
+        }
+    }
+
+    /** Сброс sliding window — вызывать при смене цели */
+    public void resetSequence() { seqBuffer.clear(); }
+
+    // ════════════════════ MODEL LOAD ════════════════════
+
+    private Path findParamsFile(Path dir) {
+        try {
+            return Files.list(dir)
+                    .filter(p -> p.getFileName().toString().startsWith("aura_ai3-")
+                            && p.getFileName().toString().endsWith(".params"))
+                    .max(Comparator.comparing(p -> p.getFileName().toString()))
+                    .orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void tryLoadModel() {
+        closeModel();
+        Path dir = modelDir();
+        Path pf = findParamsFile(dir);
+        if (pf == null) {
+            chatSink.accept("§b[AuraAI3] §7нет params, нужно обучить");
+            return;
+        }
+        try {
+            Model m = buildModel();
+            m.load(dir, "aura_ai3");
+            this.djlModel = m;
+            this.block = m.getBlock();
+            this.parameterStore = new ParameterStore(djlManager, false);
+            this.trained = true;
+            chatSink.accept("§b[AuraAI3] §aЗагружено: " + pf.getFileName());
+        } catch (Exception e) {
+            chatSink.accept("§c[AuraAI3] load failed: " + e.getMessage());
+            closeModel();
+        }
+    }
+
+    private void closeModel() {
+        if (djlModel != null) {
+            try { djlModel.close(); } catch (Exception ignored) {}
+            djlModel = null;
+        }
+        block = null;
+        parameterStore = null;
+    }
+
+    // ════════════════════ FILES ════════════════════
 
     public synchronized void clear() {
-        gestures.clear(); samples.clear(); mlp = new TorchMLP();
-        trained = false; lastLoss = Float.MAX_VALUE; save();
-        chatSink.accept("§b[AuraAI3] §cБаза очищена.");
+        recordedRows.clear();
+        trained = false;
+        lastLoss = Float.MAX_VALUE;
+        seqBuffer.clear();
+        episodeBoundary = true;
+        // Удаляем CSV и params
+        try {
+            Path csv = csvFile();
+            if (Files.exists(csv)) Files.delete(csv);
+            Path dir = modelDir();
+            if (Files.exists(dir)) {
+                Files.list(dir).filter(p -> p.getFileName().toString().endsWith(".params"))
+                        .forEach(p -> { try { Files.delete(p); } catch (Exception ignored) {} });
+            }
+        } catch (Exception ignored) {}
+        save();
+        closeModel();
+        chatSink.accept("§b[AuraAI3] §cБаза очищена");
     }
 
-    public static Path file() {
-        Path d = MinecraftClient.getInstance().runDirectory.toPath().resolve("dreamcore");
+    public static Path modelDir() {
+        Path d = MinecraftClient.getInstance().runDirectory.toPath().resolve("dreamcore").resolve("aura_ai3");
         try { Files.createDirectories(d); } catch (IOException ignored) {}
-        return d.resolve("aura_ai3.json");
+        return d;
     }
+
+    public static Path csvFile() { return modelDir().resolve("data.csv"); }
+    public static Path file() { return modelDir().resolve("meta.json"); }
 
     public synchronized void save() {
         try { Files.writeString(file(), GSON.toJson(this)); }
-        catch (Throwable t) { chatSink.accept("§c[AuraAI3] " + t.getMessage()); }
+        catch (Throwable t) { chatSink.accept("§c[AuraAI3] save: " + t.getMessage()); }
+    }
+
+    private synchronized void saveCsv() {
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(csvFile()))) {
+            w.println("dx_norm,dy_norm,mvx,mvy,episode_start");
+            for (double[] r : recordedRows) {
+                w.printf(Locale.US, "%.6f,%.6f,%.4f,%.4f,%d%n",
+                        r[0], r[1], r[2], r[3], (int) r[4]);
+            }
+        } catch (Exception e) {
+            chatSink.accept("§c[AuraAI3] csv: " + e.getMessage());
+        }
+    }
+
+    private void loadCsv() {
+        try {
+            Path f = csvFile();
+            if (!Files.exists(f)) return;
+            List<String> lines = Files.readAllLines(f);
+            for (int i = 1; i < lines.size(); i++) {
+                String[] parts = lines.get(i).split(",");
+                if (parts.length < 5) continue;
+                double[] r = new double[5];
+                for (int j = 0; j < 5; j++) r[j] = Double.parseDouble(parts[j]);
+                recordedRows.add(r);
+            }
+            chatSink.accept("§b[AuraAI3] §7CSV loaded: " + recordedRows.size() + " rows");
+        } catch (Exception ignored) {}
     }
 
     private static AuraAI3 load() {
@@ -246,69 +429,13 @@ public final class AuraAI3 {
             if (Files.exists(f)) {
                 AuraAI3 p = GSON.fromJson(Files.readString(f), AuraAI3.class);
                 if (p != null) {
-                    if (p.mlp == null) p.mlp = new TorchMLP();
-                    return p;
+                    AuraAI3 fresh = new AuraAI3();
+                    fresh.trained = p.trained;
+                    fresh.lastLoss = p.lastLoss;
+                    return fresh;
                 }
             }
         } catch (Throwable ignored) {}
         return new AuraAI3();
-    }
-
-    public static final class Gesture {
-        public float[] dYaw, dPitch;
-        public float totalAngle, sumYaw, sumPitch;
-    }
-
-    public static final class TrainingSample {
-        public float yawNorm, pitchNorm;
-        public float moveDyaw, moveDpitch;
-        public TrainingSample() {}
-        public TrainingSample(float yn, float pn, float my, float mp) {
-            this.yawNorm = yn; this.pitchNorm = pn; this.moveDyaw = my; this.moveDpitch = mp;
-        }
-    }
-
-    /**
-     * Веса из обученной PyTorch-сети, выполняются на чистом Java для быстрого predict.
-     * Сеть: 2 → 64 → 32 → 16 → 2 с LeakyReLU (как в DJL/PyTorch).
-     */
-    public static final class TorchMLP {
-        public float[][] w1, w2, w3, w4;
-        public float[] b1, b2, b3, b4;
-        public float maxMove = 30f;
-
-        public float[] forward(float yawNorm, float pitchNorm) {
-            if (w1 == null) return new float[]{0f, 0f};
-            float[] in = { Math.max(-1f, Math.min(1f, yawNorm)),
-                           Math.max(-1f, Math.min(1f, pitchNorm)) };
-            float[] h1 = leakyLayer(in, w1, b1, 64);
-            float[] h2 = leakyLayer(h1, w2, b2, 32);
-            float[] h3 = leakyLayer(h2, w3, b3, 16);
-            float[] out = linearLayer(h3, w4, b4, 2);
-            out[0] *= maxMove; out[1] *= maxMove;
-            if (Float.isNaN(out[0]) || Float.isInfinite(out[0])) out[0] = 0f;
-            if (Float.isNaN(out[1]) || Float.isInfinite(out[1])) out[1] = 0f;
-            return out;
-        }
-
-        private float[] leakyLayer(float[] in, float[][] w, float[] b, int outSize) {
-            float[] out = new float[outSize];
-            for (int j = 0; j < outSize; j++) {
-                float s = b[j];
-                for (int k = 0; k < in.length; k++) s += in[k] * w[k][j];
-                out[j] = s > 0 ? s : s * 0.01f;
-            }
-            return out;
-        }
-
-        private float[] linearLayer(float[] in, float[][] w, float[] b, int outSize) {
-            float[] out = new float[outSize];
-            for (int j = 0; j < outSize; j++) {
-                float s = b[j];
-                for (int k = 0; k < in.length; k++) s += in[k] * w[k][j];
-                out[j] = s;
-            }
-            return out;
-        }
     }
 }
