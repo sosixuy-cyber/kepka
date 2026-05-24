@@ -52,7 +52,7 @@ public final class AuraAI3Rotation extends Rotation {
         float finalStepPitch = smoothStepPitch;
 
         AuraAI3 ai = AuraAI3.get();
-        if (ai.trained && ai.mlp != null && totalAngle > 0.5f) {
+        if (ai.trained && ai.mlp != null && ai.mlp.w1 != null && totalAngle > 0.5f) {
             float yawNorm = MathHelper.clamp(dYaw / 60f, -1f, 1f);
             float pitchNorm = MathHelper.clamp(dPitch / 30f, -1f, 1f);
 
