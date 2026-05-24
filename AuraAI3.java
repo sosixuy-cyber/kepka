@@ -150,6 +150,7 @@ public final class AuraAI3 {
 
         Path modelDir = modelDir();
         Files.createDirectories(modelDir);
+        float bestLoss = Float.MAX_VALUE;
 
         try (Model m = buildModel();
              NDManager mgr = NDManager.newBaseManager()) {
@@ -187,7 +188,6 @@ public final class AuraAI3 {
                     .optInitializer(new XavierInitializer(), Parameter.Type.WEIGHT.toString());
 
             Loss lossFn = Loss.l2Loss();
-            float bestLoss = Float.MAX_VALUE;
 
             try (Trainer trainer = m.newTrainer(cfg)) {
                 trainer.initialize(new Shape(1, IN_DIM));
