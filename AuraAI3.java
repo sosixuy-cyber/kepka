@@ -130,15 +130,15 @@ public final class AuraAI3 {
 
 
         // Adam optimizer state
-        float lr = 0.002f;
+        float lr = 0.003f;
         float beta1 = 0.9f, beta2 = 0.999f, eps = 1e-8f;
         DeepMLP net = new DeepMLP();
-        net.heInit(); // He initialization для LeakyReLU
+        net.heInit();
 
         // Adam momentum/velocity для всех весов
-        float[][] mW1 = new float[7][24], vW1 = new float[7][24];
-        float[] mB1 = new float[24], vB1 = new float[24];
-        float[][] mW2 = new float[24][16], vW2 = new float[24][16];
+        float[][] mW1 = new float[6][32], vW1 = new float[6][32];
+        float[] mB1 = new float[32], vB1 = new float[32];
+        float[][] mW2 = new float[32][16], vW2 = new float[32][16];
         float[] mB2 = new float[16], vB2 = new float[16];
         float[][] mW3 = new float[16][2], vW3 = new float[16][2];
         float[] mB3 = new float[2], vB3 = new float[2];
@@ -158,9 +158,9 @@ public final class AuraAI3 {
                 t++;
 
                 // Аккумуляторы градиентов
-                float[][] gW1 = new float[7][24];
-                float[] gB1 = new float[24];
-                float[][] gW2 = new float[24][16];
+                float[][] gW1 = new float[6][32];
+                float[] gB1 = new float[32];
+                float[][] gW2 = new float[32][16];
                 float[] gB2 = new float[16];
                 float[][] gW3 = new float[16][2];
                 float[] gB3 = new float[2];
@@ -169,37 +169,36 @@ public final class AuraAI3 {
                 for (int i = batch; i < end; i++) {
                     TrainingSample s = data.get(i);
 
-                    // Нормализация входов в [-1, 1]
+                    // Нормализация входов в [-1, 1] — БЕЗ noise
                     float[] input = new float[] {
                         s.dist / maxDist,
-                        s.angle / (float)Math.PI, // angle уже в радианах [-pi, pi]
+                        s.angle / (float)Math.PI,
                         s.speed / maxSpeed,
                         s.prevStepX / maxStep,
                         s.prevStepY / maxStep,
-                        s.phase, // уже [0, 1]
-                        s.noise  // уже [-1, 1]
+                        s.phase
                     };
 
                     float targetX = s.stepX / maxStep;
                     float targetY = s.stepY / maxStep;
 
-                    // Forward pass: input(7) -> hidden1(24) -> hidden2(16) -> out(2)
-                    float[] h1raw = new float[24];
-                    float[] h1 = new float[24];
-                    for (int j = 0; j < 24; j++) {
+                    // Forward pass: input(6) -> hidden1(32) -> hidden2(16) -> out(2)
+                    float[] h1raw = new float[32];
+                    float[] h1 = new float[32];
+                    for (int j = 0; j < 32; j++) {
                         float sum = net.b1[j];
-                        for (int k = 0; k < 7; k++) sum += input[k] * net.w1[k][j];
+                        for (int k = 0; k < 6; k++) sum += input[k] * net.w1[k][j];
                         h1raw[j] = sum;
-                        h1[j] = sum > 0 ? sum : sum * 0.05f; // LeakyReLU
+                        h1[j] = sum > 0 ? sum : sum * 0.05f;
                     }
 
                     float[] h2raw = new float[16];
                     float[] h2 = new float[16];
                     for (int j = 0; j < 16; j++) {
                         float sum = net.b2[j];
-                        for (int k = 0; k < 24; k++) sum += h1[k] * net.w2[k][j];
+                        for (int k = 0; k < 32; k++) sum += h1[k] * net.w2[k][j];
                         h2raw[j] = sum;
-                        h2[j] = sum > 0 ? sum : sum * 0.05f; // LeakyReLU
+                        h2[j] = sum > 0 ? sum : sum * 0.05f;
                     }
 
                     float[] out = new float[2];
@@ -234,9 +233,9 @@ public final class AuraAI3 {
                     }
 
                     // Градиенты W2, B2
-                    float[] dH1 = new float[24];
+                    float[] dH1 = new float[32];
                     for (int j = 0; j < 16; j++) {
-                        for (int k = 0; k < 24; k++) {
+                        for (int k = 0; k < 32; k++) {
                             gW2[k][j] += dH2[j] * h1[k];
                             dH1[k] += dH2[j] * net.w2[k][j];
                         }
@@ -244,13 +243,13 @@ public final class AuraAI3 {
                     }
 
                     // Через LeakyReLU hidden1
-                    for (int j = 0; j < 24; j++) {
+                    for (int j = 0; j < 32; j++) {
                         dH1[j] *= (h1raw[j] > 0 ? 1f : 0.05f);
                     }
 
                     // Градиенты W1, B1
-                    for (int j = 0; j < 24; j++) {
-                        for (int k = 0; k < 7; k++) {
+                    for (int j = 0; j < 32; j++) {
+                        for (int k = 0; k < 6; k++) {
                             gW1[k][j] += dH1[j] * input[k];
                         }
                         gB1[j] += dH1[j];
@@ -258,12 +257,12 @@ public final class AuraAI3 {
                 }
 
 
-                // Adam update для всех весов
+                // Adam update
                 float bc1 = 1f - (float)Math.pow(beta1, t);
                 float bc2 = 1f - (float)Math.pow(beta2, t);
 
-                for (int k = 0; k < 7; k++) {
-                    for (int j = 0; j < 24; j++) {
+                for (int k = 0; k < 6; k++) {
+                    for (int j = 0; j < 32; j++) {
                         mW1[k][j] = beta1 * mW1[k][j] + (1 - beta1) * gW1[k][j];
                         vW1[k][j] = beta2 * vW1[k][j] + (1 - beta2) * gW1[k][j] * gW1[k][j];
                         float mh = mW1[k][j] / bc1;
@@ -271,13 +270,13 @@ public final class AuraAI3 {
                         net.w1[k][j] -= lr * mh / ((float)Math.sqrt(vh) + eps);
                     }
                 }
-                for (int j = 0; j < 24; j++) {
+                for (int j = 0; j < 32; j++) {
                     mB1[j] = beta1 * mB1[j] + (1 - beta1) * gB1[j];
                     vB1[j] = beta2 * vB1[j] + (1 - beta2) * gB1[j] * gB1[j];
                     net.b1[j] -= lr * (mB1[j] / bc1) / ((float)Math.sqrt(vB1[j] / bc2) + eps);
                 }
 
-                for (int k = 0; k < 24; k++) {
+                for (int k = 0; k < 32; k++) {
                     for (int j = 0; j < 16; j++) {
                         mW2[k][j] = beta1 * mW2[k][j] + (1 - beta1) * gW2[k][j];
                         vW2[k][j] = beta2 * vW2[k][j] + (1 - beta2) * gW2[k][j] * gW2[k][j];
@@ -352,13 +351,13 @@ public final class AuraAI3 {
     }
 
     /**
-     * Предсказание шага с СОХРАНЕНИЕМ СТИЛЯ.
-     * noise — случайный вход [-1,1], чтобы каждый раз траектория немного отличалась.
+     * Предсказание шага — 100% ТВОЙ стиль, без фейков и рандома.
+     * Сеть выдает РОВНО то что выучила из твоих движений.
      */
     public float[] predict(float dist, float angle, float speed,
-                           float prevStepX, float prevStepY, float phase, float noise) {
+                           float prevStepX, float prevStepY, float phase) {
         if (!trained || mlp == null) return new float[] { 0f, 0f };
-        return mlp.forward(dist, angle, speed, prevStepX, prevStepY, phase, noise);
+        return mlp.forward(dist, angle, speed, prevStepX, prevStepY, phase);
     }
 
     public synchronized void clear() {
@@ -414,7 +413,7 @@ public final class AuraAI3 {
 
 
     /**
-     * Расширенный сэмпл: полный контекст движения.
+     * Сэмпл: полный контекст движения. БЕЗ шума — только твои реальные данные.
      */
     public static final class TrainingSample {
         public float dist;      // расстояние до цели (пиксели)
@@ -423,7 +422,6 @@ public final class AuraAI3 {
         public float prevStepX; // предыдущий шаг X
         public float prevStepY; // предыдущий шаг Y
         public float phase;     // фаза наведения [0=начало, 1=доводка]
-        public float noise;     // случайный вход для вариативности
         public float stepX;     // РЕАЛЬНЫЙ шаг игрока X
         public float stepY;     // РЕАЛЬНЫЙ шаг игрока Y
 
@@ -438,7 +436,6 @@ public final class AuraAI3 {
             this.prevStepX = prevStepX;
             this.prevStepY = prevStepY;
             this.phase = phase;
-            this.noise = (float)(Math.random() * 2.0 - 1.0);
             this.stepX = stepX;
             this.stepY = stepY;
         }
@@ -446,13 +443,12 @@ public final class AuraAI3 {
 
 
     /**
-     * Двухслойная MLP: 7 → 24 → 16 → 2
-     * Достаточно мощная для захвата нелинейных паттернов движения мыши.
+     * MLP: 6 → 32 → 16 → 2. Без noise — только твои реальные паттерны.
      */
     public static final class DeepMLP {
-        public float[][] w1 = new float[7][24];   // input → hidden1
-        public float[] b1 = new float[24];
-        public float[][] w2 = new float[24][16];  // hidden1 → hidden2
+        public float[][] w1 = new float[6][32];   // input → hidden1
+        public float[] b1 = new float[32];
+        public float[][] w2 = new float[32][16];  // hidden1 → hidden2
         public float[] b2 = new float[16];
         public float[][] w3 = new float[16][2];   // hidden2 → output
         public float[] b3 = new float[2];
@@ -466,17 +462,16 @@ public final class AuraAI3 {
             heInit();
         }
 
-        /** He initialization — правильная для LeakyReLU */
         public void heInit() {
             Random r = new Random();
-            float scale1 = (float) Math.sqrt(2.0 / 7.0);
-            for (int i = 0; i < 7; i++)
-                for (int j = 0; j < 24; j++)
+            float scale1 = (float) Math.sqrt(2.0 / 6.0);
+            for (int i = 0; i < 6; i++)
+                for (int j = 0; j < 32; j++)
                     w1[i][j] = (float) r.nextGaussian() * scale1;
-            for (int j = 0; j < 24; j++) b1[j] = 0f;
+            for (int j = 0; j < 32; j++) b1[j] = 0f;
 
-            float scale2 = (float) Math.sqrt(2.0 / 24.0);
-            for (int i = 0; i < 24; i++)
+            float scale2 = (float) Math.sqrt(2.0 / 32.0);
+            for (int i = 0; i < 32; i++)
                 for (int j = 0; j < 16; j++)
                     w2[i][j] = (float) r.nextGaussian() * scale2;
             for (int j = 0; j < 16; j++) b2[j] = 0f;
@@ -488,28 +483,25 @@ public final class AuraAI3 {
             b3[0] = 0f; b3[1] = 0f;
         }
 
-
         /**
-         * Forward pass с денормализацией выхода.
-         * Возвращает реальные шаги в пикселях, воспроизводящие стиль игрока.
+         * Forward — чистый predict без шума. Выдает ТВОИ движения.
          */
         public float[] forward(float dist, float angle, float speed,
-                               float prevStepX, float prevStepY, float phase, float noise) {
+                               float prevStepX, float prevStepY, float phase) {
             float[] input = new float[] {
                 clamp(dist / maxDist, -1f, 1f),
                 angle / (float)Math.PI,
                 clamp(speed / maxSpeed, -1f, 1f),
                 clamp(prevStepX / maxStep, -1f, 1f),
                 clamp(prevStepY / maxStep, -1f, 1f),
-                clamp(phase, 0f, 1f),
-                clamp(noise, -1f, 1f)
+                clamp(phase, 0f, 1f)
             };
 
             // Hidden layer 1: LeakyReLU
-            float[] h1 = new float[24];
-            for (int j = 0; j < 24; j++) {
+            float[] h1 = new float[32];
+            for (int j = 0; j < 32; j++) {
                 float sum = b1[j];
-                for (int k = 0; k < 7; k++) sum += input[k] * w1[k][j];
+                for (int k = 0; k < 6; k++) sum += input[k] * w1[k][j];
                 h1[j] = sum > 0 ? sum : sum * 0.05f;
             }
 
@@ -517,7 +509,7 @@ public final class AuraAI3 {
             float[] h2 = new float[16];
             for (int j = 0; j < 16; j++) {
                 float sum = b2[j];
-                for (int k = 0; k < 24; k++) sum += h1[k] * w2[k][j];
+                for (int k = 0; k < 32; k++) sum += h1[k] * w2[k][j];
                 h2[j] = sum > 0 ? sum : sum * 0.05f;
             }
 
@@ -529,7 +521,6 @@ public final class AuraAI3 {
                 out[j] = sum;
             }
 
-            // Денормализация: из [-1,1] обратно в пиксели
             out[0] *= maxStep;
             out[1] *= maxStep;
 
@@ -538,13 +529,12 @@ public final class AuraAI3 {
             return out;
         }
 
-
         public DeepMLP copy() {
             DeepMLP c = new DeepMLP();
-            for (int i = 0; i < 7; i++)
-                System.arraycopy(w1[i], 0, c.w1[i], 0, 24);
-            System.arraycopy(b1, 0, c.b1, 0, 24);
-            for (int i = 0; i < 24; i++)
+            for (int i = 0; i < 6; i++)
+                System.arraycopy(w1[i], 0, c.w1[i], 0, 32);
+            System.arraycopy(b1, 0, c.b1, 0, 32);
+            for (int i = 0; i < 32; i++)
                 System.arraycopy(w2[i], 0, c.w2[i], 0, 16);
             System.arraycopy(b2, 0, c.b2, 0, 16);
             for (int i = 0; i < 16; i++)

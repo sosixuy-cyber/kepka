@@ -184,12 +184,9 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
             // Фаза: 0 = далеко от цели, 1 = почти на цели
             float phase = vInitialDist > 1f ? MathHelper.clamp(1f - dist / vInitialDist, 0f, 1f) : 1f;
 
-            // Noise — каждый тик новый, чтобы траектория была живой
-            float noise = (float)(ThreadLocalRandom.current().nextGaussian() * 0.6f);
-            noise = MathHelper.clamp(noise, -1f, 1f);
-
+            // 100% твои движения — без noise и фейков
             float[] step = AuraAI3.get().predict(dist, angle, speed,
-                    vPrevStepX, vPrevStepY, phase, noise);
+                    vPrevStepX, vPrevStepY, phase);
 
             virtualX += step[0];
             virtualY += step[1];
@@ -320,7 +317,7 @@ public final class AuraAI3Screen extends Screen implements QuickImports {
                 } else {
                     recording = false; predictMode = false;
                     training = true; trainProgress = 0f;
-                    AuraAI3.get().trainModel(2000, progress -> {
+                    AuraAI3.get().trainModel(5000, progress -> {
                         this.trainProgress = progress;
                         if (progress >= 1.0f) this.training = false;
                     });
