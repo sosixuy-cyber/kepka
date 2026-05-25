@@ -1,157 +1,134 @@
 package ru.etc1337.client.modules.impl.combat.aura;
 
-import net.minecraft.client.MinecraftClient;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.experimental.UtilityClass;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import ru.etc1337.api.interfaces.QuickImports;
+import ru.etc1337.api.settings.impl.MultiModeSetting;
 
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
-/**
- * TargetFinder — finds and prioritizes valid combat targets
- * within range of the local player.
- */
-public final class TargetFinder {
+@UtilityClass
+public class TargetFinder implements QuickImports {
 
-    private static final MinecraftClient mc = MinecraftClient.getInstance();
+    public LivingEntity currentTarget = null;
+    public Stream<LivingEntity> potentialTargets = Stream.empty();
 
-    private double range = 4.5;
-    private boolean players = true;
-    private boolean mobs = false;
-    private boolean animals = false;
-    private boolean invisible = false;
-    private Predicate<LivingEntity> customFilter = null;
+    // ── Target lock / release ─────────────────────────────────────────────────
 
-    public TargetFinder range(double range) {
-        this.range = range;
-        return this;
+    public void lockTarget(LivingEntity target) {
+        if (currentTarget == null) currentTarget = target;
     }
 
-    public TargetFinder players(boolean val) {
-        this.players = val;
-        return this;
-    }
-
-    public TargetFinder mobs(boolean val) {
-        this.mobs = val;
-        return this;
-    }
-
-    public TargetFinder animals(boolean val) {
-        this.animals = val;
-        return this;
-    }
-
-    public TargetFinder invisible(boolean val) {
-        this.invisible = val;
-        return this;
-    }
-
-    public TargetFinder filter(Predicate<LivingEntity> filter) {
-        this.customFilter = filter;
-        return this;
+    public void releaseTarget() {
+        currentTarget = null;
     }
 
     /**
-     * Find the best target based on configured criteria.
-     * @return best target or null if none found
+     * Валидирует текущую цель и ищет новую если нужно.
+     * Приоритет: сохранить текущую цель (sticky lock) — переключаемся
+     * только если она стала невалидной.
      */
-    public LivingEntity find() {
-        if (mc.player == null || mc.world == null) return null;
+    public void validateTarget(Predicate<LivingEntity> predicate) {
+        // Сначала проверяем текущую — если она всё ещё валидна, не переключаемся.
+        if (currentTarget != null && predicate.test(currentTarget)) return;
 
-        Vec3d eyePos = mc.player.getEyePos();
-        Box searchBox = mc.player.getBoundingBox().expand(range);
-
-        List<LivingEntity> candidates = new ArrayList<>();
-
-        for (var entity : mc.world.getEntitiesByClass(
-                LivingEntity.class, searchBox, e -> true)) {
-
-            if (entity == mc.player) continue;
-            if (!entity.isAlive()) continue;
-            if (entity.isRemoved()) continue;
-
-            double dist = eyePos.distanceTo(
-                    entity.getPos().add(0, entity.getHeight() / 2.0, 0));
-            if (dist > range) continue;
-
-            if (!invisible && entity.isInvisible()) continue;
-
-            if (entity instanceof PlayerEntity) {
-                if (!players) continue;
-            } else {
-                // Simple heuristic: hostile mobs vs passive
-                if (!mobs && !animals) continue;
-            }
-
-            if (customFilter != null && !customFilter.test(entity)) {
-                continue;
-            }
-
-            candidates.add(entity);
-        }
-
-        if (candidates.isEmpty()) return null;
-
-        // Sort by angle to crosshair (prioritize targets we're already looking at)
-        candidates.sort(Comparator.comparingDouble(e -> {
-            Vec3d toTarget = e.getEyePos().subtract(eyePos).normalize();
-            Vec3d look = mc.player.getRotationVector().normalize();
-            return -toTarget.dotProduct(look); // negative for ascending sort
-        }));
-
-        return candidates.get(0);
+        // Текущая цель невалидна — ищем новую.
+        if (currentTarget != null) releaseTarget();
+        findFirstMatch(predicate).ifPresent(TargetFinder::lockTarget);
     }
 
     /**
-     * Find all valid targets sorted by priority.
+     * Обновляет поток кандидатов.
+     * Сортировка: сначала по дистанции eye→eye (точнее чем позиция bbox).
+     * Если цель вышла за maxDistance — сразу сбрасываем.
      */
-    public List<LivingEntity> findAll() {
-        if (mc.player == null || mc.world == null) {
-            return List.of();
+    public void searchTargets(Iterable<Entity> entities, float maxDistance) {
+        if (isTargetOutOfRange(maxDistance)) releaseTarget();
+        potentialTargets = buildStream(entities, maxDistance);
+    }
+
+    // ── Внутренние ────────────────────────────────────────────────────────────
+
+    private boolean isTargetOutOfRange(float maxDistance) {
+        if (currentTarget == null || mc.player == null) return false;
+        // Используем eye-to-eye для точности (как и при фильтрации)
+        return mc.player.getEyePos().distanceTo(currentTarget.getEyePos()) > maxDistance;
+    }
+
+    private Stream<LivingEntity> buildStream(Iterable<Entity> entities, float maxDistance) {
+        if (mc.player == null) return Stream.empty();
+        return StreamSupport.stream(entities.spliterator(), false)
+                .filter(LivingEntity.class::isInstance)
+                .map(LivingEntity.class::cast)
+                .filter(e -> mc.player.getEyePos().distanceTo(e.getEyePos()) <= maxDistance)
+                // Ближайшие первые по eye-to-eye
+                .sorted(Comparator.comparingDouble(
+                        e -> mc.player.getEyePos().distanceTo(e.getEyePos())));
+    }
+
+    private Optional<LivingEntity> findFirstMatch(Predicate<LivingEntity> predicate) {
+        return potentialTargets.filter(predicate).findFirst();
+    }
+
+    // ── Entity filter ─────────────────────────────────────────────────────────
+
+    @RequiredArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    public static class EntityFilter {
+        MultiModeSetting targetSettings;
+
+        public boolean isValid(LivingEntity entity) {
+            if (isLocalPlayer(entity))  return false;
+            if (isInvalidHealth(entity)) return false;
+            if (isInvisibleBot(entity))  return false;
+            return isValidEntityType(entity);
         }
 
-        Vec3d eyePos = mc.player.getEyePos();
-        Box searchBox = mc.player.getBoundingBox().expand(range);
-
-        List<LivingEntity> candidates = new ArrayList<>();
-
-        for (var entity : mc.world.getEntitiesByClass(
-                LivingEntity.class, searchBox, e -> true)) {
-
-            if (entity == mc.player) continue;
-            if (!entity.isAlive()) continue;
-            if (entity.isRemoved()) continue;
-
-            double dist = eyePos.distanceTo(
-                    entity.getPos().add(0, entity.getHeight() / 2.0, 0));
-            if (dist > range) continue;
-
-            if (!invisible && entity.isInvisible()) continue;
-
-            if (entity instanceof PlayerEntity) {
-                if (!players) continue;
-            } else {
-                if (!mobs && !animals) continue;
-            }
-
-            if (customFilter != null && !customFilter.test(entity)) {
-                continue;
-            }
-
-            candidates.add(entity);
+        private boolean isLocalPlayer(LivingEntity entity) {
+            return entity == mc.player;
         }
 
-        candidates.sort(Comparator.comparingDouble(e -> {
-            Vec3d toTarget = e.getEyePos().subtract(eyePos).normalize();
-            Vec3d look = mc.player.getRotationVector().normalize();
-            return -toTarget.dotProduct(look);
-        }));
+        /** Мёртвые или уже 0 хп — не трогаем. */
+        private boolean isInvalidHealth(LivingEntity entity) {
+            return !entity.isAlive() || entity.getHealth() <= 0f;
+        }
 
-        return candidates;
+        /**
+         * Базовая anti-bot проверка без внешней зависимости:
+         * игроки с нулевым ping (NPC-боты некоторых плагинов) — пропускаем.
+         * Полноценную проверку добавить через AntiBot.isBot() если есть.
+         */
+        private boolean isInvisibleBot(LivingEntity entity) {
+            if (!(entity instanceof PlayerEntity player)) return false;
+            // Раскомментировать когда будет AntiBot:
+            // return AntiBot.isBot(player);
+            return false;
+        }
+
+        private boolean isValidEntityType(LivingEntity entity) {
+            if (entity instanceof PlayerEntity player) {
+                // Раскомментировать с FriendManager:
+                // if (!targetSettings.get("Friends").isEnabled() &&
+                //     FriendManager.isFriend(player.getName().getString())) return false;
+                return targetSettings.get(0).isEnabled();
+            }
+            if (entity instanceof MobEntity) {
+                return targetSettings.get(1).isEnabled();
+            }
+            // ArmorStand — всегда пропускаем, остальные AnimalsEntity etc. — по настройке
+            if (entity instanceof ArmorStandEntity) return false;
+            return targetSettings.get(2).isEnabled(); // Animals / Others
+        }
     }
 }
