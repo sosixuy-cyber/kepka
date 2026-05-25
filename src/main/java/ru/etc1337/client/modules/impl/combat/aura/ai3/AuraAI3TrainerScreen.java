@@ -1,10 +1,13 @@
 package ru.etc1337.client.modules.impl.combat.aura.ai3;
 
 import net.minecraft.client.gui.DrawContext;
-import ru.etc1337.api.ui.clickgui.api.MenuScreen;
-import ru.etc1337.api.ui.clickgui.screen.InterfaceScreen;
+import net.minecraft.client.util.math.MatrixStack;
+import ru.etc1337.api.interfaces.QuickImports;
 import ru.etc1337.api.render.font.Fonts;
 import ru.etc1337.api.render.rect.ShapeProperties;
+import ru.etc1337.api.ui.clickgui.InterfaceScreen;
+import ru.etc1337.api.ui.clickgui.api.MenuScreen;
+import ru.etc1337.api.ui.style.Theme;
 import ru.etc1337.api.util.color.ColorUtility;
 
 import java.util.ArrayList;
@@ -16,7 +19,7 @@ import java.util.Random;
  * inside the ClickGUI. Records mouse gestures on aim targets and
  * provides training controls.
  */
-public class AuraAI3TrainerScreen extends MenuScreen {
+public class AuraAI3TrainerScreen extends MenuScreen implements QuickImports {
 
     private boolean recording = false;
     private final Random random = new Random();
@@ -37,62 +40,70 @@ public class AuraAI3TrainerScreen extends MenuScreen {
     private String statusText = "";
 
     public AuraAI3TrainerScreen() {
-        // MenuScreen no-arg constructor
-    }
-
-    @Override
-    public void init() {
-        this.width = 220;
-        this.height = 260;
-        spawnTargets();
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float partialTicks) {
-        float alpha = getAlpha();
+        MatrixStack matrices = context.getMatrices();
+
+        InterfaceScreen gui = getClickGUI();
+        float alpha = gui != null ? gui.getAlpha().getValue() : 1.0f;
+        int bgAlpha = (int) (alpha * 230);
+
+        float panelW = 220;
+        float panelH = 260;
+        float panelX = this.x;
+        float panelY = this.y;
 
         // Panel background
-        context.fill((int) x, (int) y, (int)(x + width), (int)(y + height),
-                ColorUtility.rgba(20, 20, 28, (int)(alpha * 230)));
+        rectangle.render(ShapeProperties.create(matrices, panelX, panelY, panelW, panelH)
+                .round(6).color(ColorUtility.getColor(20, 20, 28, bgAlpha)).build());
 
-        // Border
-        context.fill((int) x, (int) y, (int)(x + width), (int) y + 1,
-                ColorUtility.rgba(80, 100, 180, (int)(alpha * 200)));
-        context.fill((int) x, (int)(y + height - 1), (int)(x + width), (int)(y + height),
-                ColorUtility.rgba(80, 100, 180, (int)(alpha * 200)));
+        // Top border accent
+        rectangle.render(ShapeProperties.create(matrices, panelX, panelY, panelW, 1)
+                .color(ColorUtility.getColor(80, 100, 180, (int) (alpha * 200))).build());
+
+        // Bottom border accent
+        rectangle.render(ShapeProperties.create(matrices, panelX, panelY + panelH - 1, panelW, 1)
+                .color(ColorUtility.getColor(80, 100, 180, (int) (alpha * 200))).build());
 
         // Title
-        context.drawCenteredTextWithShadow(mc.textRenderer,
-                "\u00a7b\u00a7lAI3 Trainer", (int)(x + width / 2), (int) y + 6, 0xFFFFFF);
+        Fonts.MNTSB.get(12).drawCenteredString(matrices, "AI3 Trainer",
+                panelX + panelW / 2f, panelY + 8, Theme.textHeader((int) (alpha * 255)));
 
-        // Stats line
+        // Stats
         AuraAI3 ai = AuraAI3.get();
-        String gestureLine = String.format("\u00a77Gestures: \u00a7f%d", ai.gestures.size());
-        context.drawTextWithShadow(mc.textRenderer, gestureLine, (int) x + 6, (int) y + 20, 0xFFFFFF);
+        Fonts.MNTSB.get(9).drawString(matrices, "Gestures: " + ai.gestures.size(),
+                panelX + 8, panelY + 24, Theme.textPrimary((int) (alpha * 255)));
 
-        String hitsLine = String.format("\u00a7aHits: %d  \u00a7cMisses: %d", totalHits, totalMisses);
-        context.drawTextWithShadow(mc.textRenderer, hitsLine, (int) x + 6, (int) y + 32, 0xFFFFFF);
+        String hitsLine = "Hits: " + totalHits + "  Misses: " + totalMisses;
+        Fonts.MNTSB.get(9).drawString(matrices, hitsLine,
+                panelX + 8, panelY + 36, Theme.textSecondary((int) (alpha * 255)));
 
-        String samplesLine = String.format("\u00a77Samples: \u00a7f%d", ai.sampleCount());
-        context.drawTextWithShadow(mc.textRenderer, samplesLine, (int) x + 6, (int) y + 44, 0xFFFFFF);
+        Fonts.MNTSB.get(9).drawString(matrices, "Samples: " + ai.sampleCount(),
+                panelX + 8, panelY + 48, Theme.textSecondary((int) (alpha * 255)));
 
         if (!statusText.isEmpty()) {
-            context.drawTextWithShadow(mc.textRenderer, statusText, (int) x + 6, (int) y + 56, 0xFFFFFF);
+            Fonts.MNTSB.get(8).drawString(matrices, statusText,
+                    panelX + 8, panelY + 60, Theme.textPrimary((int) (alpha * 255)));
         }
 
         // Game area
-        int areaX = (int) x + 10;
-        int areaY = (int) y + 70;
-        int areaW = (int) width - 20;
-        int areaH = 130;
+        float areaX = panelX + 10;
+        float areaY = panelY + 74;
+        float areaW = panelW - 20;
+        float areaH = 130;
 
-        context.fill(areaX, areaY, areaX + areaW, areaY + areaH,
-                ColorUtility.rgba(10, 10, 15, (int)(alpha * 200)));
-        // Area border
-        context.fill(areaX, areaY, areaX + areaW, areaY + 1,
-                ColorUtility.rgba(50, 50, 70, (int)(alpha * 150)));
-        context.fill(areaX, areaY + areaH - 1, areaX + areaW, areaY + areaH,
-                ColorUtility.rgba(50, 50, 70, (int)(alpha * 150)));
+        rectangle.render(ShapeProperties.create(matrices, areaX, areaY, areaW, areaH)
+                .round(4).color(ColorUtility.getColor(10, 10, 15, (int) (alpha * 200))).build());
+
+        // Area top border
+        rectangle.render(ShapeProperties.create(matrices, areaX, areaY, areaW, 1)
+                .color(ColorUtility.getColor(50, 50, 70, (int) (alpha * 150))).build());
+
+        // Area bottom border
+        rectangle.render(ShapeProperties.create(matrices, areaX, areaY + areaH - 1, areaW, 1)
+                .color(ColorUtility.getColor(50, 50, 70, (int) (alpha * 150))).build());
 
         // Render targets
         for (float[] t : targets) {
@@ -102,20 +113,22 @@ public class AuraAI3TrainerScreen extends MenuScreen {
             boolean hovered = dist <= TARGET_SIZE;
 
             int tColor = hovered
-                    ? ColorUtility.rgba(255, 80, 80, (int)(alpha * 230))
-                    : ColorUtility.rgba(220, 50, 50, (int)(alpha * 180));
+                    ? ColorUtility.getColor(255, 80, 80, (int) (alpha * 230))
+                    : ColorUtility.getColor(220, 50, 50, (int) (alpha * 180));
 
-            int sz = (int) TARGET_SIZE;
-            context.fill((int)(tx - sz), (int)(ty - sz), (int)(tx + sz), (int)(ty + sz), tColor);
+            float sz = TARGET_SIZE;
+            rectangle.render(ShapeProperties.create(matrices, tx - sz, ty - sz, sz * 2, sz * 2)
+                    .round((int) sz).color(tColor).build());
+
             // Center dot
-            context.fill((int)(tx - 2), (int)(ty - 2), (int)(tx + 2), (int)(ty + 2),
-                    ColorUtility.rgba(255, 255, 255, (int)(alpha * 220)));
+            rectangle.render(ShapeProperties.create(matrices, tx - 2, ty - 2, 4, 4)
+                    .round(2).color(ColorUtility.getColor(255, 255, 255, (int) (alpha * 220))).build());
         }
 
         // Track mouse for gesture recording
         if (recording && lastMx >= 0) {
-            float dx = (float)(mouseX - lastMx);
-            float dy = (float)(mouseY - lastMy);
+            float dx = (float) (mouseX - lastMx);
+            float dy = (float) (mouseY - lastMy);
             if (Math.abs(dx) > 0.1f || Math.abs(dy) > 0.1f) {
                 gestureYaws.add(dx);
                 gesturePitches.add(dy);
@@ -125,59 +138,69 @@ public class AuraAI3TrainerScreen extends MenuScreen {
         lastMy = mouseY;
 
         // Buttons
-        int btnY = (int)(y + height - 35);
+        float btnY2 = panelY + panelH - 35;
         int btnW = 55;
+        int btnH = 18;
         int gap = 6;
-        int btnStartX = (int) x + 10;
+        float btnStartX = panelX + 10;
 
-        renderBtn(context, recording ? "STOP" : "RECORD", btnStartX, btnY, btnW, 18, recording, mouseX, mouseY, alpha);
-        renderBtn(context, "CLEAR", btnStartX + btnW + gap, btnY, btnW, 18, false, mouseX, mouseY, alpha);
+        renderBtn(matrices, recording ? "STOP" : "START", btnStartX, btnY2, btnW, btnH,
+                recording, mouseX, mouseY, alpha);
+        renderBtn(matrices, "CLEAR", btnStartX + btnW + gap, btnY2, btnW, btnH,
+                false, mouseX, mouseY, alpha);
     }
 
-    private void renderBtn(DrawContext context, String label, int bx, int by, int bw, int bh,
-                           boolean active, int mx, int my, float alpha) {
+    private void renderBtn(MatrixStack matrices, String label, float bx, float by,
+                           int bw, int bh, boolean active, int mx, int my, float alpha) {
         boolean hovered = mx >= bx && mx <= bx + bw && my >= by && my <= by + bh;
         int bg;
         if (active) {
-            bg = ColorUtility.rgba(180, 40, 40, (int)(alpha * 210));
+            bg = ColorUtility.getColor(180, 40, 40, (int) (alpha * 210));
         } else if (hovered) {
-            bg = ColorUtility.rgba(55, 55, 75, (int)(alpha * 220));
+            bg = ColorUtility.getColor(55, 55, 75, (int) (alpha * 220));
         } else {
-            bg = ColorUtility.rgba(35, 35, 50, (int)(alpha * 200));
+            bg = ColorUtility.getColor(35, 35, 50, (int) (alpha * 200));
         }
-        context.fill(bx, by, bx + bw, by + bh, bg);
-        context.drawCenteredTextWithShadow(mc.textRenderer, label, bx + bw / 2, by + 5, 0xFFFFFF);
+        rectangle.render(ShapeProperties.create(matrices, bx, by, bw, bh)
+                .round(4).color(bg).build());
+
+        Fonts.MNTSB.get(9).drawCenteredString(matrices, label,
+                bx + bw / 2f, by + 5, ColorUtility.getColor(255, 255, 255, (int) (alpha * 255)));
     }
 
     @Override
     public void mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0) return;
 
+        float panelW = 220;
+        float panelH = 260;
+        float panelX = this.x;
+        float panelY = this.y;
+
         // Button clicks
-        int btnY = (int)(y + height - 35);
+        float btnY2 = panelY + panelH - 35;
         int btnW = 55;
         int gap = 6;
-        int btnStartX = (int) x + 10;
+        float btnStartX = panelX + 10;
 
-        if (isInRect(mouseX, mouseY, btnStartX, btnY, btnW, 18)) {
-            // RECORD / STOP toggle
+        if (isInRect(mouseX, mouseY, btnStartX, btnY2, btnW, 18)) {
+            // START / STOP toggle
             recording = !recording;
             if (recording) {
                 gestureYaws.clear();
                 gesturePitches.clear();
                 AuraAI3.get().markEpisodeBoundary();
-                statusText = "\u00a7cRecording...";
+                statusText = "Recording...";
             } else {
-                // Save gesture if we have data
                 if (gestureYaws.size() >= 3) {
                     float totalAngle = 0f;
                     for (int i = 0; i < gestureYaws.size(); i++) {
                         totalAngle += (float) Math.hypot(gestureYaws.get(i), gesturePitches.get(i));
                     }
                     AuraAI3.get().addGesture(gestureYaws, gesturePitches, totalAngle);
-                    statusText = "\u00a7aGesture saved! (" + gestureYaws.size() + " pts)";
+                    statusText = "Gesture saved! (" + gestureYaws.size() + " pts)";
                 } else {
-                    statusText = "\u00a77Gesture too short.";
+                    statusText = "Gesture too short.";
                 }
                 gestureYaws.clear();
                 gesturePitches.clear();
@@ -185,18 +208,18 @@ public class AuraAI3TrainerScreen extends MenuScreen {
             return;
         }
 
-        if (isInRect(mouseX, mouseY, btnStartX + btnW + gap, btnY, btnW, 18)) {
+        if (isInRect(mouseX, mouseY, btnStartX + btnW + gap, btnY2, btnW, 18)) {
             // CLEAR
             AuraAI3.get().clear();
             totalHits = 0;
             totalMisses = 0;
-            statusText = "\u00a7cCleared.";
+            statusText = "Cleared.";
             return;
         }
 
         // Check target hits in game area
-        int areaX = (int) x + 10;
-        int areaY = (int) y + 70;
+        float areaX = panelX + 10;
+        float areaY = panelY + 74;
 
         for (int i = targets.size() - 1; i >= 0; i--) {
             float[] t = targets.get(i);
@@ -226,12 +249,12 @@ public class AuraAI3TrainerScreen extends MenuScreen {
         totalMisses++;
     }
 
-    private boolean isInRect(double mx, double my, int rx, int ry, int rw, int rh) {
+    private boolean isInRect(double mx, double my, float rx, float ry, int rw, int rh) {
         return mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh;
     }
 
     private void spawnTargets() {
-        int areaW = (int) width - 40;
+        int areaW = 180;
         int areaH = 110;
         while (targets.size() < TARGET_COUNT) {
             float tx = 10 + random.nextFloat() * areaW;
@@ -240,11 +263,10 @@ public class AuraAI3TrainerScreen extends MenuScreen {
         }
     }
 
-    private float getAlpha() {
-        if (mc.currentScreen instanceof InterfaceScreen s) {
-            // InterfaceScreen animation alpha
-            return 1.0f;
+    private InterfaceScreen getClickGUI() {
+        if (mc.currentScreen instanceof InterfaceScreen gui) {
+            return gui;
         }
-        return 1.0f;
+        return null;
     }
 }
