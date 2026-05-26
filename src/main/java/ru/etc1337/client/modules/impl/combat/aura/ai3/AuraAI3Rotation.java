@@ -7,18 +7,20 @@ import org.joml.Vector2f;
 import ru.etc1337.client.modules.impl.combat.aura.rotation.api.Rotation;
 
 /**
- * AuraAI3Rotation v10 — Smooth Aim + Neural Pacing.
+ * AuraAI3Rotation v11 — Smooth Anchor + Full Neural Personality.
  *
- * НАПРАВЛЕНИЕ — строго smooth'ом на голову цели (плавная аура).
- *   → Никогда не крутит мимо, гарантированно доводит до головы.
+ * ОПОРА (anchor) = плавная smooth-ротация на цель.
+ *   → Гарантированно ведёт к голове противника, никогда не уходит мимо.
  *
- * ТЕМП (скорость шага) — модулируется нейронкой:
- *   → Сеть обучена на ТВОИХ движениях мышки.
- *   → Магнитуда её предикта = "сейчас рвануть" / "сейчас замедлиться".
- *   → Это придаёт smooth-ауре ТВОЙ почерк (паузы, рывки, замедления),
- *     но направление остаётся честным — на цель.
+ * ХАРАКТЕР = ПОЛНЫЙ выход нейронки (out[0], out[1]) — твои движения.
+ *   Раскладываем нейронный шаг на 2 компоненты:
+ *     • along  — вдоль направления на цель  → используется как pace-модулятор
+ *                                              (рывки/паузы как у тебя)
+ *     • perp   — поперёк направления на цель → подмешивается напрямую
+ *                                              (твои виляния/мини-отклонения)
  *
- * Итог: плавный аим, попадает по голове, но ритм движения — твой.
+ * Итог: плавная аура которая надёжно бьёт по голове,
+ *       но движется с ТВОИМ почерком (темп + траектория-виляние).
  */
 public final class AuraAI3Rotation extends Rotation {
 
@@ -26,11 +28,19 @@ public final class AuraAI3Rotation extends Rotation {
     private static final float YAW_NORM = 60f;
     private static final float PITCH_NORM = 30f;
 
-    // Границы pace-мультипликатора, на который сеть умножает базовый smooth.
-    // 0.55 = минимум (никогда не "зависает"), 1.40 = максимум (рывок).
+    // Скейл выхода сети (output ∈ [-1, 1]) → градусы.
+    private static final float STEP_SCALE_YAW = 30f;
+    private static final float STEP_SCALE_PITCH = 15f;
+
+    // Pace (вдоль): множитель к smooth-шагу. Никогда не зависает.
     private static final float PACE_MIN = 0.55f;
     private static final float PACE_MAX = 1.40f;
     private static final float PACE_GAIN = 0.85f;
+
+    // Perp (поперёк): сила "виляния" от нейронки. 0 = чистый smooth, 1 = полная.
+    private static final float PERP_WEIGHT = 0.35f;
+    // Кап на поперёк, чтоб случайный шумный кадр не швырнул голову вбок.
+    private static final float PERP_MAX_DEG = 6f;
 
     private float curYaw = Float.NaN, curPitch = Float.NaN;
     private boolean firstTick = true;
@@ -45,7 +55,7 @@ public final class AuraAI3Rotation extends Rotation {
             curPitch = mc.player.getPitch();
         }
 
-        // --- Куда смотреть (точка прицеливания: голова цели) ---
+        // --- Точка прицеливания: голова цели ---
         Vec3d eyePos = mc.player.getEyePos();
         Vec3d targetPos = target.getEyePos();
         Vec3d diff = targetPos.subtract(eyePos);
@@ -67,38 +77,64 @@ public final class AuraAI3Rotation extends Rotation {
             AuraAI3.get().markEpisodeBoundary();
         }
 
-        // ═══ БАЗОВЫЙ SMOOTH — направление на цель, плавно ═══
-        // Чем ближе к цели, тем медленнее (классическая аура-плавность).
+        // ═══ БАЗОВЫЙ SMOOTH (опора, направление на цель, плавно) ═══
         float smoothSpeed;
         if (dist > 40f)      smoothSpeed = 0.55f;
         else if (dist > 15f) smoothSpeed = 0.40f;
         else if (dist > 4f)  smoothSpeed = 0.30f;
         else                 smoothSpeed = 0.22f;
 
-        // ═══ NEURAL PACING — твой "почерк" (только темп, не направление) ═══
-        float paceMul = 1f;
+        float baseStepYaw = dYaw * smoothSpeed;
+        float baseStepPitch = dPitch * smoothSpeed;
+
+        float stepYaw = baseStepYaw;
+        float stepPitch = baseStepPitch;
+
+        // ═══ NEURAL PERSONALITY (раскладываем по компонентам) ═══
         AuraAI3 ai = AuraAI3.get();
         if (ai.trained && dist > 0.3f) {
             float dxN = MathHelper.clamp(dYaw / YAW_NORM, -1f, 1f);
             float dyN = MathHelper.clamp(dPitch / PITCH_NORM, -1f, 1f);
             float[] out = ai.predict(dxN, dyN);
 
-            // Магнитуда предсказания сети (output ∈ [-1, 1]).
-            // Большая магнитуда → рывок, малая → пауза/замедление.
-            float neuralMag = (float) Math.hypot(out[0], out[1]);
+            // Полный нейронный вектор в degree-space.
+            float neuralYaw = out[0] * STEP_SCALE_YAW;
+            float neuralPitch = out[1] * STEP_SCALE_PITCH;
 
-            paceMul = MathHelper.clamp(
-                    PACE_MIN + neuralMag * PACE_GAIN,
+            // Единичное направление на цель.
+            float distSafe = Math.max(0.0001f, dist);
+            float dirYaw = dYaw / distSafe;
+            float dirPitch = dPitch / distSafe;
+
+            // Проекция нейронного шага на направление к цели (along).
+            float along = neuralYaw * dirYaw + neuralPitch * dirPitch;
+            // Перпендикулярная компонента (perp = neural - along * dir).
+            float perpYaw = neuralYaw - along * dirYaw;
+            float perpPitch = neuralPitch - along * dirPitch;
+
+            // Cap на перпендикуляр.
+            float perpLen = (float) Math.hypot(perpYaw, perpPitch);
+            if (perpLen > PERP_MAX_DEG) {
+                perpYaw = perpYaw / perpLen * PERP_MAX_DEG;
+                perpPitch = perpPitch / perpLen * PERP_MAX_DEG;
+            }
+
+            // Pace из along-магнитуды (нейронка хочет "много вперёд" → ускоряем).
+            float alongMag = Math.min(1f, Math.abs(along) / STEP_SCALE_YAW);
+            float paceMul = MathHelper.clamp(
+                    PACE_MIN + alongMag * PACE_GAIN,
                     PACE_MIN, PACE_MAX);
+
+            // Финал: smooth * pace (темп) + perp * weight (виляние).
+            stepYaw = baseStepYaw * paceMul + perpYaw * PERP_WEIGHT;
+            stepPitch = baseStepPitch * paceMul + perpPitch * PERP_WEIGHT;
         }
 
-        // Финальный шаг: направление от smooth (на цель), темп от сети.
-        float stepYaw = dYaw * smoothSpeed * paceMul;
-        float stepPitch = dPitch * smoothSpeed * paceMul;
-
         // Не перелетаем цель.
-        if (Math.abs(stepYaw) > Math.abs(dYaw)) stepYaw = dYaw;
-        if (Math.abs(stepPitch) > Math.abs(dPitch)) stepPitch = dPitch;
+        if (Math.abs(stepYaw) > Math.abs(dYaw) && Math.signum(stepYaw) == Math.signum(dYaw))
+            stepYaw = dYaw;
+        if (Math.abs(stepPitch) > Math.abs(dPitch) && Math.signum(stepPitch) == Math.signum(dPitch))
+            stepPitch = dPitch;
 
         curYaw += stepYaw;
         curPitch = MathHelper.clamp(curPitch + stepPitch, -88f, 88f);
