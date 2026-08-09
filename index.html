@@ -1,0 +1,2884 @@
+<!doctype html>
+<html lang="ru">
+ 
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BetGift</title>
+  <link rel="stylesheet" href="/styles.css?v=devin2" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+  <style>
+    /* ── profile redesign ───────────────────────────────────────────────── */
+    .profile-hero {
+      background: linear-gradient(135deg, #1a2540 0%, #0f1a2e 100%);
+      border: 1px solid rgba(100, 140, 255, .15);
+      border-radius: 20px;
+      padding: 20px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+ 
+    .profile-ava-wrap {
+      position: relative;
+      width: 72px;
+      height: 72px;
+    }
+ 
+    .profile-ava-wrap img {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 3px solid rgba(28, 136, 255, .5);
+      box-shadow: 0 0 20px rgba(28, 136, 255, .3);
+    }
+ 
+    .profile-ava-wrap .online-badge {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #17ea96;
+      border: 2px solid #0f1a2e;
+      box-shadow: 0 0 6px #17ea96;
+    }
+ 
+    .profile-name-row {
+      text-align: center;
+    }
+ 
+    .profile-name-row strong {
+      display: block;
+      font-size: 19px;
+      color: #eef3ff;
+    }
+ 
+    .profile-name-row span {
+      font-size: 13px;
+      color: #95a4c6;
+    }
+ 
+    .profile-balance-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(28, 136, 255, .12);
+      border: 1px solid rgba(28, 136, 255, .25);
+      border-radius: 14px;
+      padding: 8px 18px;
+    }
+ 
+    .profile-balance-row .pbl-label {
+      font-size: 13px;
+      color: #95a4c6;
+    }
+ 
+    .profile-balance-row .pbl-val {
+      font-size: 18px;
+      font-weight: 900;
+      color: #34ffb8;
+    }
+ 
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+ 
+    .stat-card {
+      background: linear-gradient(160deg, #1c2640 0%, #131b2a 100%);
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 14px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+ 
+    .stat-card .sc-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+ 
+    .stat-card .sc-val {
+      font-size: 15px;
+      font-weight: 900;
+      color: #eef3ff;
+    }
+ 
+    .stat-card .sc-lbl {
+      font-size: 11px;
+      color: #95a4c6;
+      margin-top: 2px;
+    }
+ 
+    .wallet-card {
+      background: linear-gradient(135deg, #162038 0%, #0d1625 100%);
+      border: 1px solid rgba(0, 207, 133, .2);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+ 
+    .wallet-card h4 {
+      margin: 0;
+      font-size: 14px;
+      color: #95a4c6;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+ 
+    .ref-card {
+      background: linear-gradient(135deg, #1a1b38 0%, #10112a 100%);
+      border: 1px solid rgba(157, 140, 255, .2);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+ 
+    .ref-card h4 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #eef3ff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+ 
+    .ref-card p {
+      margin: 0;
+      font-size: 13px;
+      color: #95a4c6;
+      line-height: 1.5;
+    }
+ 
+    .ref-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+ 
+    .ref-stat {
+      background: rgba(0, 0, 0, .25);
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+    }
+ 
+    .ref-stat .rs-lbl {
+      font-size: 11px;
+      color: #95a4c6;
+    }
+ 
+    .ref-stat .rs-val {
+      font-size: 14px;
+      font-weight: 800;
+      margin-top: 3px;
+    }
+ 
+    /* ── bottom nav ─────────────────────────────────────────────────────── */
+    .nav-btn .nav-icon {
+      font-size: 18px;
+      display: block;
+    }
+ 
+    .nav-btn .nav-label {
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
+    }
+ 
+    .nav-btn {
+      flex-direction: column;
+      display: flex;
+      align-items: center;
+      padding: 10px 8px;
+    }
+ 
+    /* ── crash status (single line) ─────────────────────────────────────── */
+    .status-box {
+      justify-content: center;
+      text-align: center;
+    }
+ 
+    /* ── action buttons ─────────────────────────────────────────────────── */
+    .btn-with-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+ 
+    .btn-icon {
+      font-size: 18px;
+    }
+ 
+  </style>
+ 
+  <style>
+    /* ── TG overlay ─────────────────────────────────────────────────────── */
+    #tg-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: linear-gradient(135deg, #0a0f1e 0%, #080c18 100%);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 32px;
+      text-align: center;
+    }
+    #tg-overlay.show { display: flex; }
+    #tg-overlay .tg-icon { font-size: 72px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+    #tg-overlay h2 { font-size: 24px; font-weight: 900; color: #eef3ff; margin: 0; }
+    #tg-overlay p { font-size: 15px; color: #7a8aac; margin: 0; line-height: 1.6; }
+    #tg-overlay .tg-link {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(90deg, #229ed9, #1a8fc2);
+      color: #fff; font-weight: 700; font-size: 16px;
+      padding: 14px 28px; border-radius: 16px;
+      text-decoration: none; border: none; cursor: pointer;
+      box-shadow: 0 4px 24px rgba(34,158,217,.35);
+      transition: transform .15s, box-shadow .15s;
+    }
+    #tg-overlay .tg-link:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(34,158,217,.5); }
+ 
+    /* ── Amount modal ────────────────────────────────────────────────────── */
+    #amountModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 8888;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px);
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #amountModal.show { display: flex; }
+    #amountModal .am-sheet {
+      width: 100%;
+      max-width: 480px;
+      background: linear-gradient(180deg, #1a2540 0%, #10192e 100%);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 24px 24px 0 0;
+      padding: 24px 20px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: slideUp .25s ease;
+    }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    #amountModal .am-title { font-size: 18px; font-weight: 800; color: #eef3ff; display:flex; align-items:center; gap:8px; }
+    #amountModal .am-hint { font-size: 13px; color: #7a8aac; }
+    #amountModal .am-input {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #eef3ff;
+      width: 100%;
+      box-sizing: border-box;
+      outline: none;
+    }
+    #amountModal .am-input:focus { border-color: rgba(19,255,210,.4); }
+    #amountModal .am-btns { display: flex; gap: 10px; }
+    #amountModal .am-btns button { flex: 1; }
+
+    /* ── Toast notifications (slide up from bottom) ───────────────────────── */
+    #toastStack {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+      width: min(460px, calc(100vw - 24px));
+    }
+    .toast {
+      pointer-events: auto;
+      min-width: 220px;
+      max-width: 100%;
+      background: linear-gradient(180deg, #1a2540 0%, #10192e 100%);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 12px 16px;
+      color: #eef3ff;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.35;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transform: translateY(140%);
+      opacity: 0;
+      transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast .toast-icon { flex: 0 0 auto; width: 22px; height: 22px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; font-size: 13px; }
+    .toast.toast-info .toast-icon { background: rgba(78,123,255,.2); color:#7aa0ff; }
+    .toast.toast-success .toast-icon { background: rgba(19,255,210,.18); color:#13ffd2; }
+    .toast.toast-error .toast-icon { background: rgba(255,94,116,.2); color:#ff5e74; }
+    .toast.toast-warn .toast-icon { background: rgba(255,196,0,.2); color:#ffc400; }
+    .toast .toast-msg { flex: 1 1 auto; }
+
+    /* ── Prompt modal (custom bottom sheet for user input) ────────────────── */
+    #promptModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 8889;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px);
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #promptModal.show { display: flex; }
+    #promptModal .pm-sheet {
+      width: 100%;
+      max-width: 480px;
+      background: linear-gradient(180deg, #1a2540 0%, #10192e 100%);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 24px 24px 0 0;
+      padding: 24px 20px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: slideUp .25s ease;
+    }
+    #promptModal .pm-title { font-size: 18px; font-weight: 800; color: #eef3ff; display:flex; align-items:center; gap:8px; }
+    #promptModal .pm-hint { font-size: 13px; color: #7a8aac; line-height: 1.45; }
+    #promptModal .pm-options { display: flex; flex-direction: column; gap: 8px; }
+    #promptModal .pm-opt {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: #eef3ff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    #promptModal .pm-opt:hover { border-color: rgba(19,255,210,.35); background: rgba(19,255,210,.06); transform: translateY(-1px); }
+    #promptModal .pm-opt .pm-opt-hint { font-size: 12px; color: #7a8aac; font-weight: 500; margin-left: auto; }
+    #promptModal .pm-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: #b6c0d8;
+      cursor: pointer;
+      font-weight: 600;
+    }
+  </style>
+</head>
+ 
+<body>
+ 
+  <!-- ── Telegram overlay ──────────────────────────────────────────────────── -->
+  <div id="tg-overlay">
+    <div class="tg-icon"><i class="fa-brands fa-telegram" style="font-size:72px;color:#229ed9;"></i></div>
+    <h2>Откройте через Telegram</h2>
+    <p>BetGift работает только как Telegram Mini App.<br>Нажмите кнопку ниже, чтобы открыть игру в боте.</p>
+    <a href="https://t.me/bet_gift_bot" class="tg-link">
+      <i class="fa-brands fa-telegram"></i> Открыть в Telegram
+    </a>
+  </div>
+ 
+  <!-- ── Amount modal ───────────────────────────────────────────────────────── -->
+  <div id="amountModal">
+    <div class="am-sheet">
+      <div class="am-title" id="amModalTitle"><i class="fa-solid fa-coins"></i> Сумма</div>
+      <div class="am-hint" id="amModalHint"></div>
+      <input id="amModalInput" class="am-input" type="number" min="0.1" step="0.1" placeholder="0.00" />
+      <div class="am-btns">
+        <button id="amModalCancel" class="btn btn-secondary">Отмена</button>
+        <button id="amModalConfirm" class="btn btn-primary btn-with-icon">
+          <span class="btn-icon"><i class="fa-solid fa-check"></i></span> Подтвердить
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- ── Toast stack ───────────────────────────────────────────────────────── -->
+  <div id="toastStack" aria-live="polite"></div>
+
+  <!-- ── Prompt modal (options sheet) ──────────────────────────────────────── -->
+  <div id="promptModal">
+    <div class="pm-sheet">
+      <div class="pm-title" id="pmTitle"><i class="fa-solid fa-circle-question"></i> <span id="pmTitleText">Выбор</span></div>
+      <div class="pm-hint" id="pmHint"></div>
+      <div class="pm-options" id="pmOptions"></div>
+      <button id="pmCancel" class="pm-cancel">Отмена</button>
+    </div>
+  </div>
+
+  <main class="app">
+ 
+    <!-- ── Games tab ──────────────────────────────────────────────────────── -->
+    <section id="tab-crash" class="tab-screen active">
+      <header class="hud-row">
+        <div class="hud-pill hud-pill-green">
+          <span class="dot"></span>
+          <strong id="onlineCount">0</strong>
+        </div>
+        <div class="spacer"></div>
+        <div class="hud-pill hud-pill-blue">
+          <img class="ton-icon" src="/animation/ton.svg" alt="TON" />
+          <strong id="balanceValue">10.00</strong>
+        </div>
+      </header>
+
+      <section id="gamesLobby" class="games-lobby">
+        <div class="games-lobby-head">
+          <span class="eyebrow">BETGIFT GAMES</span>
+          <h2>Выберите игру</h2>
+        </div>
+        <button class="game-card game-card-crash" type="button" data-open-game="crash">
+          <span class="game-card-glow"></span>
+          <span class="game-card-icon"><i class="fa-solid fa-shuttle-space"></i></span>
+          <span class="game-card-copy">
+            <strong>Crash</strong>
+            <small>Ракета, множитель и быстрый вывод</small>
+          </span>
+        </button>
+        <button class="game-card game-card-mines" type="button" data-open-game="mines">
+          <span class="game-card-glow"></span>
+          <span class="game-card-icon"><i class="fa-solid fa-gem"></i></span>
+          <span class="game-card-copy">
+            <strong>Мины</strong>
+            <small>Поле 5x5, от 2 до 24 мин</small>
+          </span>
+        </button>
+        <button class="game-card game-card-upgrade" type="button" data-open-game="upgrade">
+          <span class="game-card-glow"></span>
+          <span class="game-card-icon"><i class="fa-solid fa-arrow-trend-up"></i></span>
+          <span class="game-card-copy">
+            <strong>Апгрейд</strong>
+            <small>Только NFT — обменивай на дороже</small>
+          </span>
+        </button>
+      </section>
+
+      <section class="games-switch game-pane-hidden" aria-label="Games">
+        <button class="game-switch-btn active" type="button" data-game="crash">
+          <i class="fa-solid fa-shuttle-space"></i><span>Crash</span>
+        </button>
+        <button class="game-switch-btn" type="button" data-game="mines">
+          <i class="fa-solid fa-bomb"></i><span>Мины</span>
+        </button>
+        <button class="game-switch-btn" type="button" data-game="upgrade">
+          <i class="fa-solid fa-arrow-trend-up"></i><span>Апгрейд</span>
+        </button>
+      </section>
+ 
+      <section class="game-topbar crash-only game-pane-hidden">
+        <button class="game-back-btn" type="button" data-open-game="lobby"><i class="fa-solid fa-chevron-left"></i></button>
+        <strong>Crash</strong>
+      </section>
+
+      <section class="space-stage crash-only game-pane-hidden">
+        <div class="space-bg space-bg-nebula" aria-hidden="true"></div>
+        <div class="space-bg space-bg-stars-far" aria-hidden="true"></div>
+        <div class="space-bg space-bg-stars-near" aria-hidden="true"></div>
+        <div class="space-bg space-bg-grid" aria-hidden="true"></div>
+        <div class="shooting-stars" aria-hidden="true">
+          <span class="shooting-star shooting-star-1"></span>
+          <span class="shooting-star shooting-star-2"></span>
+          <span class="shooting-star shooting-star-3"></span>
+        </div>
+        <canvas id="rocketCanvas" aria-label="Crash Rocket"></canvas>
+        <div id="rocketLottie" class="rocket-overlay" style="position:absolute;pointer-events:none;"></div>
+        <div class="x-center" id="multiplierValue">x1.00</div>
+      </section>
+ 
+      <section class="last-mults crash-only game-pane-hidden" id="crashHistory"></section>
+ 
+      <!-- Bet button -->
+      <section class="bet-row crash-only game-pane-hidden">
+        <button id="startCrashBtn" class="btn btn-primary" type="button" style="grid-column:1/-1;">
+          <span id="startBtnLabel">Сделать ставку</span>
+        </button>
+        <button id="cashoutBtn" class="btn btn-secondary btn-with-icon" type="button" disabled
+          style="display:none;grid-column:1/-1;">
+          <span class="btn-icon"><i class="fa-solid fa-sack-dollar"></i></span><span id="cashoutLabel">Забрать</span>
+        </button>
+      </section>
+ 
+      <!-- Single status line -->
+      <section class="status-box crash-only game-pane-hidden">
+        <div id="crashStatus">Ожидание раунда</div>
+      </section>
+
+      <section id="minesGamePane" class="mines-pane game-pane-hidden">
+        <section class="game-topbar">
+          <button class="game-back-btn" type="button" data-open-game="lobby"><i class="fa-solid fa-chevron-left"></i></button>
+          <strong>Мины</strong>
+        </section>
+        <div class="mines-hero">
+          <div>
+            <h2>Мины</h2>
+          </div>
+          <div class="mines-payout">
+            <span>Вывод</span>
+            <strong id="minesPayout">0.00 TON</strong>
+          </div>
+        </div>
+        <!-- Mines bet tabs -->
+        <div class="bet-tabs" id="minesBetTabs">
+          <button class="bet-tab active" id="minesTabTon" type="button">TON</button>
+          <button class="bet-tab" id="minesTabNft" type="button">NFT</button>
+        </div>
+        <div id="minesPaneTon">
+          <div class="mines-controls">
+            <label>
+              <span>Ставка TON</span>
+              <input id="minesBet" type="text" inputmode="decimal" autocomplete="off" value="0.1" />
+            </label>
+            <label>
+              <span>Мин</span>
+              <input id="minesCount" type="number" min="2" max="24" step="1" value="3" />
+            </label>
+          </div>
+        </div>
+        <div id="minesPaneNft" style="display:none;">
+          <div class="bet-gifts-hint" style="margin-bottom:8px;">Выберите NFT из инвентаря — его цена станет ставкой</div>
+          <div id="minesNftList" class="bet-gifts-list"></div>
+          <div class="mines-controls" style="margin-top:8px;">
+            <label>
+              <span>Мин</span>
+              <input id="minesCountNft" type="number" min="2" max="24" step="1" value="3" />
+            </label>
+          </div>
+        </div>
+        <div class="mines-stats">
+          <span><i class="fa-solid fa-gem"></i> <b id="minesSafeOpened">0</b> открыто</span>
+          <span><i class="fa-solid fa-chart-line"></i> x<b id="minesMultiplier">1.00</b></span>
+        </div>
+        <div id="minesBoard" class="mines-board" aria-label="Mines 5x5"></div>
+        <div class="mines-actions">
+          <button id="startMinesBtn" class="btn btn-primary btn-with-icon" type="button">
+            <span class="btn-icon"><i class="fa-solid fa-play"></i></span> Начать
+          </button>
+          <button id="cashoutMinesBtn" class="btn btn-secondary btn-with-icon" type="button" disabled>
+            <span class="btn-icon"><i class="fa-solid fa-sack-dollar"></i></span> Забрать
+          </button>
+        </div>
+        <div id="minesStatus" class="mines-status">Выберите ставку и количество мин.</div>
+      </section>
+
+      <section id="upgradeGamePane" class="upgrade-pane game-pane-hidden">
+        <section class="game-topbar">
+          <button class="game-back-btn" type="button" data-open-game="lobby"><i class="fa-solid fa-chevron-left"></i></button>
+          <strong>Апгрейд</strong>
+        </section>
+        <div class="upgrade-hero">
+          <div>
+            <h2>Апгрейд NFT</h2>
+            <small>RTP 93% · NFT → NFT дороже</small>
+          </div>
+          <div class="upgrade-chance-badge">
+            <span>Шанс</span>
+            <strong id="upgradeChanceVal">—</strong>
+          </div>
+        </div>
+
+        <div class="upgrade-slots">
+          <div class="upgrade-slot" id="upgradeSourceSlot">
+            <div class="upgrade-slot-label">Ваш NFT</div>
+            <div class="upgrade-slot-body" id="upgradeSourceBody">
+              <i class="fa-solid fa-circle-plus"></i>
+              <span>Выберите из инвентаря</span>
+            </div>
+          </div>
+          <div class="upgrade-slot-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+          <div class="upgrade-slot" id="upgradeTargetSlot">
+            <div class="upgrade-slot-label">Цель</div>
+            <div class="upgrade-slot-body" id="upgradeTargetBody">
+              <i class="fa-solid fa-bullseye"></i>
+              <span>Выберите цель</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="upgrade-chance-bar-wrap">
+          <div id="upgradeChanceBar" class="upgrade-chance-bar"></div>
+          <div id="upgradeChanceNeedle" class="upgrade-chance-needle"></div>
+        </div>
+
+        <div class="upgrade-section">
+          <div class="upgrade-section-title">Шаг 1 · Ваш NFT</div>
+          <div id="upgradeSourceList" class="bet-gifts-list"></div>
+        </div>
+
+        <div class="upgrade-section">
+          <div class="upgrade-section-title">Шаг 2 · Цель (дороже)</div>
+          <div id="upgradeTargetList" class="bet-gifts-list">
+            <div class="bet-gifts-empty">Сначала выберите ваш NFT</div>
+          </div>
+        </div>
+
+        <div class="upgrade-actions">
+          <button id="playUpgradeBtn" class="btn btn-primary btn-with-icon" type="button" disabled>
+            <span class="btn-icon"><i class="fa-solid fa-arrow-trend-up"></i></span>
+            <span id="playUpgradeLabel">Апгрейд</span>
+          </button>
+        </div>
+        <div id="upgradeStatus" class="mines-status">Выберите NFT и цель для апгрейда.</div>
+      </section>
+    </section>
+ 
+    <!-- ── Bet bottom sheet ───────────────────────────────────────────────── -->
+    <div id="betBottomSheet" class="bottom-sheet">
+      <div class="sheet-content">
+        <h3>Сделать ставку</h3>
+
+        <!-- Tab switcher: Подарки / TON -->
+        <div class="bet-tabs">
+          <button class="bet-tab" id="betTabGifts" type="button">Подарки</button>
+          <button class="bet-tab active" id="betTabTon" type="button">TON</button>
+        </div>
+
+        <!-- TON pane -->
+        <div id="betPaneTon">
+          <div class="bet-balance-row">
+            <span class="bet-balance-label">Сумма</span>
+            <span class="bet-balance-val">balance: <strong id="betBalanceDisplay">0.00</strong> ton</span>
+          </div>
+          <input id="crashBet" class="bet-amount-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="0.1" />
+          <div class="bet-auto-row">
+            <div class="bet-auto-toggle-wrap">
+              <span>Авто вывод</span>
+              <label class="toggle-switch">
+                <input id="autoToggle" type="checkbox" />
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div class="bet-auto-x-wrap">
+              <button class="auto-x-btn" id="autoXMinus" type="button">−</button>
+              <span id="autoXDisplay">x2.0</span>
+              <button class="auto-x-btn" id="autoXPlus" type="button">+</button>
+            </div>
+          </div>
+          <!-- hidden input for actual value -->
+          <input id="autoCashoutX" type="hidden" value="" />
+        </div>
+
+        <!-- Gifts pane -->
+        <div id="betPaneGifts" style="display:none;">
+          <div class="bet-gifts-hint">Выберите NFT из инвентаря для ставки</div>
+          <div id="betGiftsList" class="bet-gifts-list"></div>
+        </div>
+
+        <button id="confirmBetBtn" class="btn btn-primary" type="button" style="width:100%;font-size:17px;padding:16px;">
+          Сделать ставку
+        </button>
+        <button id="closeSheetBtn" class="btn btn-secondary" type="button"
+          style="background:transparent;color:#95a4c6;border:1px solid rgba(255,255,255,.1);width:100%;padding:12px;">
+          Отмена
+        </button>
+      </div>
+    </div>
+ 
+    <!-- ── Profile tab ────────────────────────────────────────────────────── -->
+    <section id="tab-profile" class="tab-screen">
+ 
+      <!-- Hero card -->
+      <div class="profile-hero">
+        <div class="profile-ava-wrap">
+          <img id="profileAvatar" src="" alt="Avatar" />
+          <div class="online-badge"></div>
+        </div>
+        <div class="profile-name-row">
+          <strong id="profileName">Player</strong>
+          <span id="profileUsername">@player</span>
+        </div>
+        <div class="profile-balance-row">
+          <span class="pbl-label">Баланс</span>
+          <img class="ton-icon" src="/animation/ton.svg" alt="TON" style="width:16px;height:16px;" />
+          <span class="pbl-val" id="profileBalanceValue">10.00</span>
+        </div>
+      </div>
+ 
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="sc-icon"><i class="fa-solid fa-trophy" style="color: #ffd700;"></i></div>
+          <div class="sc-val" id="profileTotalWon">0.00</div>
+          <div class="sc-lbl">Выиграно TON</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-icon"><i class="fa-solid fa-coins" style="color: #13ffd2;"></i></div>
+          <div class="sc-val" id="profileTotalWagered">0.00</div>
+          <div class="sc-lbl">Поставлено TON</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-icon"><i class="fa-solid fa-users" style="color: #9d8cff;"></i></div>
+          <div class="sc-val" id="statRefCount">0</div>
+          <div class="sc-lbl">Рефералов</div>
+        </div>
+      </div>
+ 
+      <!-- Wallet -->
+      <div class="wallet-card">
+        <h4><i class="fa-solid fa-gem" style="color: #00cf85;"></i> TON Кошелёк</h4>
+        <div id="ton-connect"></div>
+        <div id="walletActions" style="display:none; flex-direction:column; gap:8px; margin-top:8px;">
+          <button id="depositBtn" class="btn btn-primary btn-with-icon" style="width:100%;">
+            <span class="btn-icon"><i class="fa-solid fa-arrow-down"></i></span> Депозит
+          </button>
+          <button id="withdrawBtn" class="btn btn-secondary btn-with-icon" style="width:100%;">
+            <span class="btn-icon"><i class="fa-solid fa-arrow-up"></i></span> Вывод
+          </button>
+          <button id="disconnectBtn" class="btn btn-secondary btn-with-icon" style="width:100%; border-color: rgba(255,100,100,0.3); color: #ff5e74; background: rgba(255, 94, 116, 0.1);">
+            <span class="btn-icon"><i class="fa-solid fa-link-slash"></i></span> Отключить кошелёк
+          </button>
+        </div>
+      </div>
+ 
+      <!-- Referral -->
+      <div class="ref-card">
+        <h4><i class="fa-solid fa-link" style="color: #9d8cff;"></i> Реферальная программа</h4>
+        <p>Приглашайте друзей и получайте <strong style="color:#13ffd2;">10%</strong> сразу на баланс за их депозит!</p>
+        <div class="ref-stats">
+          <div class="ref-stat">
+            <div class="rs-lbl">Моментально</div>
+            <div class="rs-val" style="color:#ffd700;" id="refInstant">10%</div>
+          </div>
+          <div class="ref-stat">
+            <div class="rs-lbl">Заработано</div>
+            <div class="rs-val" style="color:#13ffd2;" id="refUnlocked">0.00</div>
+          </div>
+          <div class="ref-stat">
+            <div class="rs-lbl">Друзей</div>
+            <div class="rs-val" style="color:#9d8cff;" id="refCount">0</div>
+          </div>
+        </div>
+        <button id="copyRefLinkBtn" class="btn btn-primary btn-with-icon" style="width:100%;font-size:15px;">
+          <span class="btn-icon"><i class="fa-solid fa-clipboard"></i></span> Скопировать реф. ссылку
+        </button>
+      </div>
+ 
+    </section>
+ 
+    <section id="tab-gifts" class="tab-screen">
+      <div class="page-head">
+        <div>
+          <span class="eyebrow">NFT MARKET</span>
+          <h2>Подарки Telegram</h2>
+        </div>
+        <button id="refreshGiftsBtn" class="mini-action"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      <div class="market-controls">
+        <input id="giftSearch" type="search" placeholder="Найти Lunar, Pepe..." />
+        <select id="giftSource">
+          <option value="both">Все</option>
+          <option value="tonnel">Tonnel</option>
+          <option value="portals">Portals</option>
+        </select>
+      </div>
+      <div id="giftsGrid" class="nft-grid"></div>
+    </section>
+ 
+    <section id="tab-inventory" class="tab-screen">
+      <div class="page-head">
+        <div>
+          <h2>Инвентарь</h2>
+        </div>
+        <div class="inventory-head-actions">
+          <span id="inventoryCount" class="count-pill">0 NFT</span>
+          <button id="sellAllInventoryBtn" class="mini-action sell-all-action" type="button" disabled>
+            <i class="fa-solid fa-sack-dollar"></i> Продать всё
+          </button>
+        </div>
+      </div>
+      <div id="inventoryGrid" class="nft-grid"></div>
+    </section>
+ 
+    <!-- ── Bottom nav ─────────────────────────────────────────────────────── -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-tab="games">
+        <span class="nav-icon"><i class="fa-solid fa-gamepad"></i></span>
+        <span class="nav-label">Игры</span>
+      </button>
+      
+      <button class="nav-btn" data-tab="inventory">
+        <span class="nav-icon"><i class="fa-solid fa-vault"></i></span>
+        <span class="nav-label">Инвентарь</span>
+      </button>
+      <button class="nav-btn" data-tab="profile">
+        <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+        <span class="nav-label">Профиль</span>
+      </button>
+    </nav>
+  </main>
+ 
+  <script>
+    (() => {
+      const isLocalDev = ['localhost', '127.0.0.1'].includes(location.hostname);
+      const tg = isLocalDev ? null : window.Telegram?.WebApp;
+      // Referral id — Telegram start_param first, then URL query params.
+      // Exposed globally so both IIFE scripts below can use it.
+      window.getReferralId = window.getReferralId || (() => {
+        const raw = (tg?.initDataUnsafe?.start_param)
+          || new URLSearchParams(location.search).get('start_param')
+          || new URLSearchParams(location.search).get('startapp')
+          || new URLSearchParams(location.search).get('ref');
+        if (!raw) return null;
+        const n = parseInt(String(raw), 10);
+        return Number.isFinite(n) ? n : null;
+      });
+      if (tg) {
+        try { tg.ready(); } catch { }
+        try { tg.expand(); } catch { }
+        try {
+          if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen();
+        } catch { }
+      }
+      const TG_USER = tg?.initDataUnsafe?.user;
+ 
+      // ── TG overlay ───────────────────────────────────────────────────
+      // tg.initData is always non-empty string when opened inside real Telegram
+      const isInTelegram = !!(tg && typeof tg.initData === 'string' && tg.initData.length > 0);
+      if (!isInTelegram && !isLocalDev) {
+        document.getElementById('tg-overlay').classList.add('show');
+      }
+ 
+      const ROCKET_ANIM_SPEED = 1.45;
+      const BOOM_ANIM_SPEED = 1.15;
+      const FALLBACK_ROCKET_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="r" x1="0" x2="1" y1="1" y2="0"><stop stop-color="#7c5cff"/><stop offset=".55" stop-color="#eaf6ff"/><stop offset="1" stop-color="#ff5e74"/></linearGradient><filter id="g"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g filter="url(#g)" transform="rotate(-32 120 120)"><path d="M116 20c34 18 55 56 58 113l-31 31c-4-22-18-36-40-40l31-31C96 88 70 72 52 42c25-1 46 5 64-22Z" fill="url(#r)"/><circle cx="127" cy="71" r="18" fill="#081226" stroke="#80e6ff" stroke-width="6"/><path d="M91 125 58 158l-14-42c17 0 33 3 47 9Z" fill="#5b8cff"/><path d="M137 171 104 204l-10-45c17 2 31 6 43 12Z" fill="#9d8cff"/><path d="M68 160c-16 12-23 29-26 48 18-4 35-11 47-27" fill="#ffb547"/><path d="M54 174c-9 8-14 18-16 29 11-3 21-8 29-17" fill="#fff2a8"/></g></svg>`)}`;
+      const FALLBACK_BOOM_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><radialGradient id="b" cx="50%" cy="50%" r="55%"><stop offset="0" stop-color="#fff5b8"/><stop offset=".34" stop-color="#ffb547"/><stop offset=".66" stop-color="#ff5e74"/><stop offset="1" stop-color="#7c3cff" stop-opacity="0"/></radialGradient></defs><path d="M120 6 143 78 213 43 177 112 236 139 164 154 190 224 129 178 80 233 84 160 8 173 70 129 16 78 91 91Z" fill="url(#b)"/></svg>`)}`;
+ 
+      // ── State ────────────────────────────────────────────────────────────────
+      const state = {
+        balance: 0,
+        online: 0,
+        crash: {
+          phase: "cooldown",
+          active: false,
+          roundId: "",
+          currentX: 1,
+          displayX: 1,
+          targetX: 1,
+          cooldownLeft: 0,
+          history: [],
+          payoutFactor: 1.0,
+          hasBet: false,
+          cashedOutAt: null,
+          autoCashoutAt: null,
+          cashoutPending: false,
+          lastPlayers: [],
+        },
+        view: { boomUntil: 0 },
+        tgUser: { id: TG_USER?.id ?? null, name: TG_USER?.first_name ?? "Player", username: TG_USER?.username ?? "", avatar: TG_USER?.photo_url ?? "" },
+        profile: { totalWon: 0, totalWagered: 0, refUnlocked: 0, refCount: 0 },
+      };
+      window.appState = state;
+ 
+      // ── DOM ──────────────────────────────────────────────────────────────────
+      const el = {
+        onlineCount: document.getElementById("onlineCount"),
+        balanceValue: document.getElementById("balanceValue"),
+        crashBet: document.getElementById("crashBet"),
+        autoCashoutX: document.getElementById("autoCashoutX"),
+        startCrashBtn: document.getElementById("startCrashBtn"),
+        startBtnLabel: document.getElementById("startBtnLabel"),
+        cashoutBtn: document.getElementById("cashoutBtn"),
+        cashoutLabel: document.getElementById("cashoutLabel"),
+        multiplierValue: document.getElementById("multiplierValue"),
+        crashStatus: document.getElementById("crashStatus"),
+        crashHistory: document.getElementById("crashHistory"),
+        gamesLobby: document.getElementById("gamesLobby"),
+        gameSwitchBtns: [...document.querySelectorAll(".game-switch-btn")],
+        gameOpenBtns: [...document.querySelectorAll("[data-open-game]")],
+        crashOnlyEls: [...document.querySelectorAll(".crash-only")],
+        minesGamePane: document.getElementById("minesGamePane"),
+        minesBet: document.getElementById("minesBet"),
+        minesCount: document.getElementById("minesCount"),
+        minesBoard: document.getElementById("minesBoard"),
+        minesPayout: document.getElementById("minesPayout"),
+        minesSafeOpened: document.getElementById("minesSafeOpened"),
+        minesMultiplier: document.getElementById("minesMultiplier"),
+        minesStatus: document.getElementById("minesStatus"),
+        startMinesBtn: document.getElementById("startMinesBtn"),
+        cashoutMinesBtn: document.getElementById("cashoutMinesBtn"),
+        upgradeGamePane: document.getElementById("upgradeGamePane"),
+        upgradeSourceList: document.getElementById("upgradeSourceList"),
+        upgradeTargetList: document.getElementById("upgradeTargetList"),
+        upgradeSourceBody: document.getElementById("upgradeSourceBody"),
+        upgradeTargetBody: document.getElementById("upgradeTargetBody"),
+        upgradeSourceSlot: document.getElementById("upgradeSourceSlot"),
+        upgradeTargetSlot: document.getElementById("upgradeTargetSlot"),
+        upgradeChanceVal: document.getElementById("upgradeChanceVal"),
+        upgradeChanceBar: document.getElementById("upgradeChanceBar"),
+        upgradeChanceNeedle: document.getElementById("upgradeChanceNeedle"),
+        playUpgradeBtn: document.getElementById("playUpgradeBtn"),
+        playUpgradeLabel: document.getElementById("playUpgradeLabel"),
+        upgradeStatus: document.getElementById("upgradeStatus"),
+        rocketCanvas: document.getElementById("rocketCanvas"),
+        rocketLottie: document.getElementById("rocketLottie"),
+        betBottomSheet: document.getElementById("betBottomSheet"),
+        confirmBetBtn: document.getElementById("confirmBetBtn"),
+        closeSheetBtn: document.getElementById("closeSheetBtn"),
+        betInventoryItem: document.getElementById("betInventoryItem"),
+        tabCrash: document.getElementById("tab-crash"),
+        tabGifts: document.getElementById("tab-gifts"),
+        tabInventory: document.getElementById("tab-inventory"),
+        tabProfile: document.getElementById("tab-profile"),
+        navBtns: [...document.querySelectorAll(".nav-btn")],
+        giftsGrid: document.getElementById("giftsGrid"),
+        inventoryGrid: document.getElementById("inventoryGrid"),
+        inventoryCount: document.getElementById("inventoryCount"),
+        sellAllInventoryBtn: document.getElementById("sellAllInventoryBtn"),
+        giftSearch: document.getElementById("giftSearch"),
+        giftSource: document.getElementById("giftSource"),
+        refreshGiftsBtn: document.getElementById("refreshGiftsBtn"),
+        profileAvatar: document.getElementById("profileAvatar"),
+        profileName: document.getElementById("profileName"),
+        profileUsername: document.getElementById("profileUsername"),
+        profileBalanceValue: document.getElementById("profileBalanceValue"),
+        profileTotalWon: document.getElementById("profileTotalWon"),
+        profileTotalWagered: document.getElementById("profileTotalWagered"),
+        statRefCount: document.getElementById("statRefCount"),
+        refInstant: document.getElementById("refInstant"),
+        refUnlocked: document.getElementById("refUnlocked"),
+        refCount: document.getElementById("refCount"),
+        copyRefLinkBtn: document.getElementById("copyRefLinkBtn"),
+        realDepositBtn: document.getElementById("realDepositBtn"),
+      };
+ 
+      // ── Lottie canvas renderer ───────────────────────────────────────────────
+      class LottieFrames {
+        constructor(path, speed = 1) {
+          this.path = path; this.speed = speed;
+          this.frames = []; this.durations = []; this.duration = 0; this.ready = false;
+        }
+        async load() {
+          const data = await fetch(this.path).then(r => r.json());
+          const resolved = await Promise.all((data.frames || []).map(f => this._loadFrame(f)));
+          for (const item of resolved) {
+            if (!item) continue;
+            this.frames.push(item.img); this.durations.push(item.duration); this.duration += item.duration;
+          }
+          this.ready = this.frames.length > 0;
+        }
+        async _loadFrame(frame) {
+          return new Promise(res => {
+            const img = new Image();
+            img.onload = async () => {
+              try { if (window.createImageBitmap) { res({ img: await createImageBitmap(img), duration: Number(frame.duration_ms || 66) }); return; } } catch { }
+              res({ img, duration: Number(frame.duration_ms || 66) });
+            };
+            img.onerror = () => res(null);
+            img.src = frame.data;
+          });
+        }
+        frameAtProgress(ms) {
+          if (!this.ready || !this.duration) return null;
+          let t = Math.max(0, Math.min(ms * this.speed, this.duration - 1));
+          for (let i = 0; i < this.durations.length; i++) { t -= this.durations[i]; if (t <= 0) return this.frames[i]; }
+          return this.frames[this.frames.length - 1];
+        }
+      }
+ 
+      let rocketLottieAnim = null;
+      let rocketLottieReady = false;
+      const boomFrames = new LottieFrames('/animation/boom.json', BOOM_ANIM_SPEED);
+      const ctx = el.rocketCanvas.getContext('2d', { alpha: true, desynchronized: true });
+      let canvasW = 0, canvasH = 0;
+      const fallbackRocketImg = new Image();
+      fallbackRocketImg.src = FALLBACK_ROCKET_SVG;
+      const fallbackBoomImg = new Image();
+      fallbackBoomImg.src = FALLBACK_BOOM_SVG;
+ 
+      function resizeCanvas() {
+        const rect = el.rocketCanvas.getBoundingClientRect();
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        el.rocketCanvas.width = Math.floor(rect.width * dpr);
+        el.rocketCanvas.height = Math.floor(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        canvasW = Math.floor(rect.width); canvasH = Math.floor(rect.height);
+      }
+ 
+      // ── Helpers ──────────────────────────────────────────────────────────────
+      function api(url, opts = {}) {
+        return fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts })
+          .then(async res => { const d = await res.json().catch(() => ({})); if (!res.ok) throw new Error(d.error || 'Ошибка'); return d; });
+      }
+      function fmtTon(v) {
+        const n = Number(v || 0);
+        return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 }).replace(/,/g, '');
+      }
+      function escapeHtml(v) {
+        return String(v ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+      }
+
+      // ── Toast notifications (slide up from bottom) ────────────────────────
+      const TOAST_ICONS = {
+        info:    '<i class="fa-solid fa-circle-info"></i>',
+        success: '<i class="fa-solid fa-check"></i>',
+        error:   '<i class="fa-solid fa-triangle-exclamation"></i>',
+        warn:    '<i class="fa-solid fa-circle-exclamation"></i>',
+      };
+      function showToast(message, type = 'info', duration = 3500) {
+        const stack = document.getElementById('toastStack');
+        if (!stack) return;
+        const t = document.createElement('div');
+        t.className = `toast toast-${type}`;
+        t.innerHTML = `<span class="toast-icon">${TOAST_ICONS[type] || TOAST_ICONS.info}</span><span class="toast-msg">${escapeHtml(message || '')}</span>`;
+        stack.appendChild(t);
+        // Force reflow to trigger transition
+        void t.offsetWidth;
+        t.classList.add('show');
+        const remove = () => {
+          t.classList.remove('show');
+          setTimeout(() => t.remove(), 320);
+        };
+        setTimeout(remove, Math.max(1200, duration));
+        t.addEventListener('click', remove);
+      }
+      window.showToast = showToast;
+
+      // ── Bottom-sheet prompt for choosing between a few options ────────────
+      // opts.options = [{value, label, hint}]
+      function showPromptSheet(opts) {
+        return new Promise((resolve) => {
+          const modal = document.getElementById('promptModal');
+          const titleText = document.getElementById('pmTitleText');
+          const hint = document.getElementById('pmHint');
+          const optionsEl = document.getElementById('pmOptions');
+          const cancel = document.getElementById('pmCancel');
+          if (!modal) { resolve(null); return; }
+          titleText.textContent = opts.title || 'Выбор';
+          hint.textContent = opts.hint || '';
+          optionsEl.innerHTML = '';
+          let done = false;
+          const close = (value) => {
+            if (done) return;
+            done = true;
+            modal.classList.remove('show');
+            cancel.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onBg);
+            resolve(value);
+          };
+          const onCancel = () => close(null);
+          const onBg = (ev) => { if (ev.target === modal) close(null); };
+          (opts.options || []).forEach(o => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pm-opt';
+            btn.innerHTML = `<span>${escapeHtml(o.label || o.value)}</span>${o.hint ? `<span class="pm-opt-hint">${escapeHtml(o.hint)}</span>` : ''}`;
+            btn.addEventListener('click', () => close(o.value));
+            optionsEl.appendChild(btn);
+          });
+          cancel.addEventListener('click', onCancel);
+          modal.addEventListener('click', onBg);
+          modal.classList.add('show');
+        });
+      }
+      window.showPromptSheet = showPromptSheet;
+      function parseDecimalInput(raw) {
+        if (raw == null) return NaN;
+        const normalized = String(raw).trim().replace(',', '.').replace(/[^\d.]/g, '');
+        if (!normalized) return NaN;
+        return Number(normalized);
+      }
+      function bindDecimalInput(inputEl) {
+        if (!inputEl) return;
+        inputEl.addEventListener('input', () => {
+          const value = inputEl.value.replace(',', '.');
+          const clean = value
+            .replace(/[^\d.]/g, '')
+            .replace(/(\..*?)\..*/g, '$1');
+          if (clean !== inputEl.value) inputEl.value = clean;
+        });
+      }
+ 
+      // ── Bet sheet tab logic ──────────────────────────────────────────────────
+      const betTabTon = document.getElementById('betTabTon');
+      const betTabGifts = document.getElementById('betTabGifts');
+      const betPaneTon = document.getElementById('betPaneTon');
+      const betPaneGifts = document.getElementById('betPaneGifts');
+      const betBalanceDisplay = document.getElementById('betBalanceDisplay');
+      const autoToggle = document.getElementById('autoToggle');
+      const autoXDisplay = document.getElementById('autoXDisplay');
+      const autoXMinus = document.getElementById('autoXMinus');
+      const autoXPlus = document.getElementById('autoXPlus');
+      const autoCashoutXInput = document.getElementById('autoCashoutX');
+
+      let autoXValue = 2.0;
+
+      function updateAutoX() {
+        autoXDisplay.textContent = 'x' + autoXValue.toFixed(1);
+        autoCashoutXInput.value = autoToggle.checked ? String(autoXValue) : '';
+      }
+      autoToggle.addEventListener('change', updateAutoX);
+      autoXMinus.addEventListener('click', () => { autoXValue = Math.max(1.1, parseFloat((autoXValue - 0.1).toFixed(1))); updateAutoX(); });
+      autoXPlus.addEventListener('click', () => { autoXValue = Math.min(100, parseFloat((autoXValue + 0.1).toFixed(1))); updateAutoX(); });
+
+      function updateBetSheetBalance() {
+        if (betBalanceDisplay) betBalanceDisplay.textContent = fmtTon(state.balance);
+      }
+
+      betTabTon.addEventListener('click', () => {
+        betTabTon.classList.add('active'); betTabGifts.classList.remove('active');
+        betPaneTon.style.display = ''; betPaneGifts.style.display = 'none';
+      });
+      betTabGifts.addEventListener('click', () => {
+        betTabGifts.classList.add('active'); betTabTon.classList.remove('active');
+        betPaneTon.style.display = 'none'; betPaneGifts.style.display = '';
+        window._betSelectedGiftIds = new Set();
+        window._betSelectedGiftId = '';
+        loadBetGifts();
+      });
+
+      async function loadBetGifts() {
+        const betGiftsList = document.getElementById('betGiftsList');
+        if (!betGiftsList) return;
+        try {
+          const data = await api('/api/inventory');
+          const items = data.items || [];
+          if (!items.length) {
+            betGiftsList.innerHTML = '<div class="bet-gifts-empty">Инвентарь пуст</div>';
+            return;
+          }
+          betGiftsList.innerHTML = items.map(item => {
+            const imgSrc = item.image_url || item.photo_url || '';
+            const name = String(item.name || 'NFT').replace(/\s*#\d+\s*$/g, '').trim();
+            const invId = item.inventory_id || item.id || '';
+            const priceVal = Number(item.price_ton || item.payout_ton || 0);
+            return `<div class="bet-gift-row" data-inv-id="${escapeHtml(invId)}" data-price="${priceVal}">
+              <div class="bet-gift-img">${imgSrc ? `<img src="${escapeHtml(imgSrc)}" alt="">` : '<i class="fa-solid fa-gift"></i>'}</div>
+              <div class="bet-gift-info"><strong>${escapeHtml(name)}</strong><span>${fmtTon(priceVal)} TON</span></div>
+              <div class="bet-gift-check"><i class="fa-solid fa-circle-check"></i></div>
+            </div>`;
+          }).join('');
+          // Multi-selection: click toggles; show total in a summary row
+          window._betSelectedGiftIds = new Set();
+          function _updateGiftBetSummary() {
+            const ids = window._betSelectedGiftIds;
+            let total = 0;
+            betGiftsList.querySelectorAll('.bet-gift-row.selected').forEach(r => {
+              total += Number(r.dataset.price || 0);
+            });
+            let sumEl = document.getElementById('betGiftsSummary');
+            if (!sumEl) {
+              sumEl = document.createElement('div');
+              sumEl.id = 'betGiftsSummary';
+              sumEl.style.cssText = 'text-align:center;font-size:13px;color:#13ffd2;margin-top:6px;font-weight:600;';
+              betGiftsList.parentElement.appendChild(sumEl);
+            }
+            if (ids.size === 0) {
+              sumEl.textContent = '';
+            } else {
+              sumEl.textContent = `Выбрано ${ids.size} NFT · Ставка: ${fmtTon(total)} TON`;
+            }
+            // Also show/hide auto-cashout for NFT
+            const autoCashoutEl = document.getElementById('autoCashoutRow');
+            if (autoCashoutEl) autoCashoutEl.style.display = ids.size > 0 ? '' : '';
+          }
+          betGiftsList.addEventListener('click', (ev) => {
+            const row = ev.target.closest('.bet-gift-row');
+            if (!row) return;
+            const id = row.dataset.invId;
+            if (window._betSelectedGiftIds.has(id)) {
+              window._betSelectedGiftIds.delete(id);
+              row.classList.remove('selected');
+            } else {
+              window._betSelectedGiftIds.add(id);
+              row.classList.add('selected');
+            }
+            window._betSelectedGiftId = window._betSelectedGiftIds.size === 1
+              ? [...window._betSelectedGiftIds][0] : '';
+            _updateGiftBetSummary();
+          });
+        } catch (e) {
+          const betGiftsList2 = document.getElementById('betGiftsList');
+          if (betGiftsList2) betGiftsList2.innerHTML = '<div class="bet-gifts-empty">Ошибка загрузки</div>';
+        }
+      }
+
+      const _origUpdateBalance = updateBalance;
+      function updateBalance(v) {
+        _origUpdateBalance(v);
+        updateBetSheetBalance();
+      }
+
+      bindDecimalInput(el.crashBet);
+      bindDecimalInput(el.minesBet);
+
+      function formatPrize(prize, credited = 0, fallbackTon = 0) {
+        if (prize) {
+          const extra = Number(credited || 0) > 0 ? ` + ${fmtTon(credited)} TON` : '';
+          return `NFT: ${prize.name || 'NFT'}${extra}`;
+        }
+        return `${fmtTon(fallbackTon)} TON`;
+      }
+
+      const minesState = {
+        active: false,
+        revealed: new Set(),
+        mines: new Set(),
+        lost: false,
+        completed: false,
+      };
+
+      function setGameMode(mode) {
+        const isLobby = !mode || mode === 'lobby';
+        const isMines = mode === 'mines';
+        const isCrash = mode === 'crash';
+        const isUpgrade = mode === 'upgrade';
+        if (el.gamesLobby) el.gamesLobby.classList.toggle('game-pane-hidden', !isLobby);
+        el.gameSwitchBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.game === mode));
+        document.querySelectorAll('.crash-only').forEach(node => node.classList.toggle('game-pane-hidden', !isCrash));
+        if (el.minesGamePane) el.minesGamePane.classList.toggle('game-pane-hidden', !isMines);
+        if (el.upgradeGamePane) el.upgradeGamePane.classList.toggle('game-pane-hidden', !isUpgrade);
+        // Fix: resize canvas after crash pane becomes visible (was display:none → 0x0)
+        if (isCrash) { setTimeout(resizeCanvas, 30); setTimeout(resizeCanvas, 150); }
+        if (isUpgrade) { try { upgradeOpen(); } catch (e) {} }
+      }
+
+      function syncMinesCount(value) {
+        const n = Math.min(24, Math.max(2, parseInt(value || 3, 10) || 3));
+        el.minesCount.value = String(n);
+      }
+
+      function renderMinesBoard(game = {}) {
+        if (!el.minesBoard) return;
+        const revealed = new Set((game.revealed || []).map(Number));
+        const mines = new Set((game.mines || []).map(Number));
+        minesState.active = !!game.active;
+        minesState.revealed = revealed;
+        minesState.mines = mines;
+        el.minesBoard.innerHTML = '';
+        for (let i = 0; i < 25; i++) {
+          const cell = document.createElement('button');
+          cell.type = 'button';
+          cell.className = 'mine-cell';
+          cell.dataset.cell = String(i);
+          const isOpen = revealed.has(i);
+          const isMine = mines.has(i);
+          cell.classList.toggle('is-open', isOpen);
+          cell.classList.toggle('is-mine', isMine);
+          cell.disabled = !game.active || isOpen || mines.size > 0;
+          cell.innerHTML = isMine
+            ? '<i class="fa-solid fa-bomb"></i>'
+            : isOpen
+              ? '<i class="fa-solid fa-gem"></i>'
+              : '<i class="fa-solid fa-question"></i>';
+          el.minesBoard.appendChild(cell);
+        }
+        const safe = Number(game.safe_opened || 0);
+        const mult = Number(game.multiplier || 1);
+        const payout = Number(game.payout || 0);
+        const credited = Number(game.credited || 0);
+        const prize = game.prize || game.nft_preview || null;
+        el.minesSafeOpened.textContent = String(safe);
+        el.minesMultiplier.textContent = mult.toFixed(2);
+        el.minesPayout.textContent = formatPrize(prize, credited, payout);
+        el.startMinesBtn.disabled = !!game.active;
+        el.cashoutMinesBtn.disabled = !game.active || safe <= 0;
+      }
+
+      // ── Mines NFT tab logic ──────────────────────────────────────────────
+      let _minesSelectedNftId = '';
+      const minesTabTon = document.getElementById('minesTabTon');
+      const minesTabNft = document.getElementById('minesTabNft');
+      const minesPaneTon = document.getElementById('minesPaneTon');
+      const minesPaneNft = document.getElementById('minesPaneNft');
+      const minesCountNft = document.getElementById('minesCountNft');
+
+      if (minesTabTon) minesTabTon.addEventListener('click', () => {
+        minesTabTon.classList.add('active'); minesTabNft.classList.remove('active');
+        minesPaneTon.style.display = ''; minesPaneNft.style.display = 'none';
+      });
+      if (minesTabNft) minesTabNft.addEventListener('click', async () => {
+        minesTabNft.classList.add('active'); minesTabTon.classList.remove('active');
+        minesPaneTon.style.display = 'none'; minesPaneNft.style.display = '';
+        await loadMinesNftList();
+      });
+
+      async function loadMinesNftList() {
+        const listEl = document.getElementById('minesNftList');
+        if (!listEl) return;
+        listEl.innerHTML = '<div class="bet-gifts-empty">Загрузка...</div>';
+        try {
+          const data = await api('/api/inventory');
+          const items = data.items || [];
+          if (!items.length) { listEl.innerHTML = '<div class="bet-gifts-empty">Инвентарь пуст</div>'; return; }
+          listEl.innerHTML = items.map(item => {
+            const imgSrc = item.image_url || '';
+            const name = String(item.name || 'NFT').replace(/\s*#\d+\s*$/g, '').trim();
+            const invId = item.inventory_id || item.id || '';
+            const priceVal = Number(item.price_ton || item.payout_ton || 0);
+            return `<div class="bet-gift-row" data-mines-inv-id="${escapeHtml(invId)}" data-price="${priceVal}">
+              <div class="bet-gift-img">${imgSrc ? `<img src="${escapeHtml(imgSrc)}" alt="">` : '<i class="fa-solid fa-gift"></i>'}</div>
+              <div class="bet-gift-info"><strong>${escapeHtml(name)}</strong><span>${fmtTon(priceVal)} TON</span></div>
+              <div class="bet-gift-check"><i class="fa-solid fa-circle-check"></i></div>
+            </div>`;
+          }).join('');
+          _minesSelectedNftId = '';
+          window._minesSelectedNftIds = new Set();
+          listEl.addEventListener('click', (ev) => {
+            const row = ev.target.closest('.bet-gift-row');
+            if (!row) return;
+            const id = row.dataset.minesInvId;
+            if (window._minesSelectedNftIds.has(id)) {
+              window._minesSelectedNftIds.delete(id);
+              row.classList.remove('selected');
+            } else {
+              window._minesSelectedNftIds.add(id);
+              row.classList.add('selected');
+            }
+            _minesSelectedNftId = window._minesSelectedNftIds.size === 1 ? [...window._minesSelectedNftIds][0] : '';
+            // Update summary
+            let mSum = document.getElementById('minesNftSummary');
+            if (!mSum) {
+              mSum = document.createElement('div');
+              mSum.id = 'minesNftSummary';
+              mSum.style.cssText = 'text-align:center;font-size:13px;color:#13ffd2;margin-top:6px;font-weight:600;';
+              listEl.parentElement.appendChild(mSum);
+            }
+            if (window._minesSelectedNftIds.size === 0) { mSum.textContent = ''; }
+            else {
+              let tot = 0;
+              listEl.querySelectorAll('.bet-gift-row.selected').forEach(r => tot += Number(r.dataset.price || 0));
+              mSum.textContent = `Выбрано ${window._minesSelectedNftIds.size} NFT · Ставка: ${fmtTon(tot)} TON`;
+            }
+          });
+        } catch(e) {
+          listEl.innerHTML = '<div class="bet-gifts-empty">Ошибка загрузки</div>';
+        }
+      }
+
+      async function startMines() {
+        const isTonTab = !minesTabNft || minesTabTon.classList.contains('active');
+        const selectedNftIds = (window._minesSelectedNftIds && window._minesSelectedNftIds.size > 0)
+          ? [...window._minesSelectedNftIds]
+          : (_minesSelectedNftId ? [_minesSelectedNftId] : []);
+        const useNft = !isTonTab && selectedNftIds.length > 0;
+        const mines = parseInt((isTonTab ? el.minesCount : minesCountNft)?.value || '3', 10);
+
+        if (!useNft) {
+          if (!isTonTab) {
+            el.minesStatus.textContent = 'Выберите NFT из инвентаря';
+            return;
+          }
+          const bet = parseDecimalInput(el.minesBet.value);
+          if (!Number.isFinite(bet) || bet < 0.1) {
+            el.minesStatus.textContent = 'Минимальная ставка 0.1 TON';
+            return;
+          }
+          try {
+            const data = await api('/api/mines/start', { method: 'POST', body: JSON.stringify({ bet, mines }) });
+            updateBalance(data.balance);
+            renderMinesBoard(data.game);
+            el.minesStatus.textContent = 'Игра началась. Открывайте безопасные клетки.';
+          } catch (e) { el.minesStatus.textContent = e.message; }
+        } else {
+          try {
+            const data = await api('/api/mines/start', { method: 'POST', body: JSON.stringify({ inventory_item_ids: selectedNftIds, mines }) });
+            updateBalance(data.balance);
+            renderMinesBoard(data.game);
+            _minesSelectedNftId = '';
+            window._minesSelectedNftIds = new Set();
+            await loadMinesNftList();
+            el.minesStatus.textContent = 'Игра началась с NFT ставкой. Открывайте безопасные клетки.';
+            loadInventory();
+          } catch (e) { el.minesStatus.textContent = e.message; }
+        }
+      }
+
+      async function revealMineCell(cell) {
+        if (!minesState.active) return;
+        try {
+          const data = await api('/api/mines/reveal', { method: 'POST', body: JSON.stringify({ cell }) });
+          updateBalance(data.balance);
+          renderMinesBoard(data.game);
+          if (data.lost) {
+            el.minesStatus.textContent = 'Попали на мину. Ставка сгорела.';
+            showToast('Мина. Ставка сгорела', 'error');
+          } else if (data.game?.completed) {
+            const prizeText = formatPrize(data.game.prize || data.game.nft_preview, data.game.credited, data.game.payout);
+            el.minesStatus.textContent = `Поле очищено: +${prizeText}`;
+            showToast(`Поле очищено: +${prizeText}`, 'success');
+            if (data.game.prize || data.game.nft_preview) loadInventory();
+          } else {
+            el.minesStatus.textContent = `Безопасно. Можно забрать ${formatPrize(data.game?.nft_preview, data.game?.credited, data.game?.payout)}.`;
+          }
+        } catch (e) {
+          el.minesStatus.textContent = e.message;
+        }
+      }
+
+      async function cashoutMines() {
+        try {
+          const data = await api('/api/mines/cashout', { method: 'POST', body: JSON.stringify({}) });
+          updateBalance(data.balance);
+          renderMinesBoard(data.game);
+          const prizeText = formatPrize(data.prize || data.game?.prize, data.credited ?? data.game?.credited, data.payout);
+          el.minesStatus.textContent = `Забрали ${prizeText}.`;
+          showToast(`Мины: +${prizeText}`, 'success');
+          if (data.prize || data.game?.prize) loadInventory();
+        } catch (e) {
+          el.minesStatus.textContent = e.message;
+        }
+      }
+
+      renderMinesBoard({ active: false, revealed: [], mines: [], safe_opened: 0, multiplier: 1, payout: 0 });
+
+      // ── Upgrade game ──────────────────────────────────────────────────────
+      const upgradeState = {
+        source: null,        // {inventory_id, name, price_ton, image_url}
+        target: null,        // {name, price_ton, image_url}
+        targets: [],
+        playing: false,
+        inventory: [],
+      };
+
+      function escapeHtmlSafe(s) { return escapeHtml(String(s || '')); }
+
+      function upgradeWinProb() {
+        const s = Number(upgradeState.source?.price_ton || 0);
+        const t = Number(upgradeState.target?.price_ton || 0);
+        if (!(s > 0) || !(t > 0) || t <= s) return 0;
+        return Math.min(0.97, (s * 0.93) / t);
+      }
+
+      function upgradeUpdateChance() {
+        const p = upgradeWinProb();
+        const pct = p > 0 ? (p * 100).toFixed(2) : '—';
+        if (el.upgradeChanceVal) el.upgradeChanceVal.textContent = p > 0 ? `${pct}%` : '—';
+        if (el.upgradeChanceBar) el.upgradeChanceBar.style.width = `${Math.round(p * 100)}%`;
+        if (el.upgradeChanceNeedle) el.upgradeChanceNeedle.style.left = `${Math.round(p * 100)}%`;
+        if (el.playUpgradeBtn) el.playUpgradeBtn.disabled = !(p > 0) || upgradeState.playing;
+      }
+
+      function upgradeRenderSlot(slotBody, item, placeholder) {
+        if (!slotBody) return;
+        if (!item) {
+          slotBody.innerHTML = placeholder;
+          return;
+        }
+        const name = String(item.name || 'NFT').replace(/\s*#\d+\s*$/g, '').trim();
+        const img = item.image_url || '';
+        const price = Number(item.price_ton || item.payout_ton || 0);
+        slotBody.innerHTML = `
+          <div class="upgrade-slot-card">
+            <div class="upgrade-slot-img">${img ? `<img src="${escapeHtmlSafe(img)}" alt="">` : '<i class="fa-solid fa-gift"></i>'}</div>
+            <div class="upgrade-slot-info">
+              <strong>${escapeHtmlSafe(name)}</strong>
+              <span>${fmtTon(price)} TON</span>
+            </div>
+          </div>`;
+      }
+
+      function upgradeRenderSource() {
+        upgradeRenderSlot(
+          el.upgradeSourceBody,
+          upgradeState.source,
+          '<i class="fa-solid fa-circle-plus"></i><span>Выберите из инвентаря</span>'
+        );
+        if (el.upgradeSourceSlot) el.upgradeSourceSlot.classList.toggle('is-filled', !!upgradeState.source);
+      }
+
+      function upgradeRenderTarget() {
+        upgradeRenderSlot(
+          el.upgradeTargetBody,
+          upgradeState.target,
+          '<i class="fa-solid fa-bullseye"></i><span>Выберите цель</span>'
+        );
+        if (el.upgradeTargetSlot) el.upgradeTargetSlot.classList.toggle('is-filled', !!upgradeState.target);
+      }
+
+      async function upgradeLoadInventory() {
+        const listEl = el.upgradeSourceList;
+        if (!listEl) return;
+        listEl.innerHTML = '<div class="bet-gifts-empty">Загрузка...</div>';
+        try {
+          const data = await api('/api/inventory');
+          const items = (data.items || []).filter(it => Number(it.price_ton || it.payout_ton || 0) > 0);
+          upgradeState.inventory = items;
+          if (!items.length) {
+            listEl.innerHTML = '<div class="bet-gifts-empty">Инвентарь пуст — выиграйте NFT в Crash или Минах</div>';
+            return;
+          }
+          listEl.innerHTML = items.map(item => {
+            const name = String(item.name || 'NFT').replace(/\s*#\d+\s*$/g, '').trim();
+            const invId = item.inventory_id || item.id || '';
+            const price = Number(item.price_ton || item.payout_ton || 0);
+            const img = item.image_url || '';
+            return `<div class="bet-gift-row" data-upg-inv-id="${escapeHtmlSafe(invId)}" data-price="${price}">
+              <div class="bet-gift-img">${img ? `<img src="${escapeHtmlSafe(img)}" alt="">` : '<i class="fa-solid fa-gift"></i>'}</div>
+              <div class="bet-gift-info"><strong>${escapeHtmlSafe(name)}</strong><span>${fmtTon(price)} TON</span></div>
+              <div class="bet-gift-check"><i class="fa-solid fa-circle-check"></i></div>
+            </div>`;
+          }).join('');
+        } catch (e) {
+          listEl.innerHTML = `<div class="bet-gifts-empty">Ошибка загрузки: ${escapeHtmlSafe(e.message)}</div>`;
+        }
+      }
+
+      async function upgradeLoadTargets() {
+        const listEl = el.upgradeTargetList;
+        if (!listEl) return;
+        if (!upgradeState.source) {
+          listEl.innerHTML = '<div class="bet-gifts-empty">Сначала выберите ваш NFT</div>';
+          return;
+        }
+        listEl.innerHTML = '<div class="bet-gifts-empty">Загрузка целей...</div>';
+        const minPrice = Number(upgradeState.source.price_ton || 0);
+        try {
+          const data = await api(`/api/upgrade/targets?min_price=${encodeURIComponent(minPrice)}&limit=30`);
+          const targets = data.targets || [];
+          upgradeState.targets = targets;
+          if (!targets.length) {
+            listEl.innerHTML = '<div class="bet-gifts-empty">Нет целей дороже выбранного NFT</div>';
+            return;
+          }
+          listEl.innerHTML = targets.map(item => {
+            const name = String(item.name || 'NFT').replace(/\s*#\d+\s*$/g, '').trim();
+            const price = Number(item.price_ton || item.payout_ton || 0);
+            const img = item.image_url || '';
+            const mult = minPrice > 0 ? (price / minPrice).toFixed(2) : '—';
+            return `<div class="bet-gift-row" data-upg-target-name="${escapeHtmlSafe(item.name || '')}" data-price="${price}">
+              <div class="bet-gift-img">${img ? `<img src="${escapeHtmlSafe(img)}" alt="">` : '<i class="fa-solid fa-gift"></i>'}</div>
+              <div class="bet-gift-info"><strong>${escapeHtmlSafe(name)}</strong><span>${fmtTon(price)} TON · x${mult}</span></div>
+              <div class="bet-gift-check"><i class="fa-solid fa-circle-check"></i></div>
+            </div>`;
+          }).join('');
+        } catch (e) {
+          listEl.innerHTML = `<div class="bet-gifts-empty">Ошибка: ${escapeHtmlSafe(e.message)}</div>`;
+        }
+      }
+
+      function upgradeSelectSource(invId) {
+        const item = upgradeState.inventory.find(i => String(i.inventory_id || i.id || '') === String(invId));
+        if (!item) return;
+        upgradeState.source = item;
+        upgradeState.target = null;
+        upgradeRenderSource();
+        upgradeRenderTarget();
+        upgradeUpdateChance();
+        if (el.upgradeSourceList) {
+          [...el.upgradeSourceList.querySelectorAll('.bet-gift-row')].forEach(r => {
+            r.classList.toggle('selected', String(r.dataset.upgInvId) === String(invId));
+          });
+        }
+        if (el.upgradeStatus) el.upgradeStatus.textContent = 'Шаг 2: выберите цель дороже.';
+        upgradeLoadTargets();
+      }
+
+      function upgradeSelectTarget(name, price) {
+        const item = upgradeState.targets.find(i => String(i.name || '') === String(name));
+        if (!item) return;
+        upgradeState.target = item;
+        upgradeRenderTarget();
+        upgradeUpdateChance();
+        if (el.upgradeTargetList) {
+          [...el.upgradeTargetList.querySelectorAll('.bet-gift-row')].forEach(r => {
+            r.classList.toggle('selected', String(r.dataset.upgTargetName) === String(name));
+          });
+        }
+        if (el.upgradeStatus) el.upgradeStatus.textContent = `Шанс апгрейда ${(upgradeWinProb() * 100).toFixed(2)}%. Нажмите «Апгрейд».`;
+      }
+
+      async function upgradeOpen() {
+        upgradeState.source = null;
+        upgradeState.target = null;
+        upgradeState.targets = [];
+        upgradeRenderSource();
+        upgradeRenderTarget();
+        upgradeUpdateChance();
+        if (el.upgradeTargetList) {
+          el.upgradeTargetList.innerHTML = '<div class="bet-gifts-empty">Сначала выберите ваш NFT</div>';
+        }
+        if (el.upgradeStatus) el.upgradeStatus.textContent = 'Выберите NFT и цель для апгрейда.';
+        if (el.playUpgradeLabel) el.playUpgradeLabel.textContent = 'Апгрейд';
+        await upgradeLoadInventory();
+      }
+
+      async function playUpgrade() {
+        if (!upgradeState.source || !upgradeState.target || upgradeState.playing) return;
+        upgradeState.playing = true;
+        if (el.playUpgradeBtn) el.playUpgradeBtn.disabled = true;
+        if (el.upgradeStatus) el.upgradeStatus.textContent = 'Крутим колесо удачи...';
+        if (el.playUpgradeLabel) el.playUpgradeLabel.textContent = 'Идёт апгрейд...';
+        if (el.upgradeSourceSlot) el.upgradeSourceSlot.classList.add('is-spinning');
+        if (el.upgradeTargetSlot) el.upgradeTargetSlot.classList.add('is-spinning');
+        try {
+          const payload = {
+            inventory_item_id: upgradeState.source.inventory_id || upgradeState.source.id,
+            target_name: upgradeState.target.name,
+            target_price: upgradeState.target.price_ton || upgradeState.target.payout_ton || 0,
+          };
+          const data = await api('/api/upgrade/play', { method: 'POST', body: JSON.stringify(payload) });
+          if (typeof data.balance === 'number') updateBalance(data.balance);
+          // Short suspense for animation
+          await new Promise(r => setTimeout(r, 900));
+          if (data.won) {
+            if (el.upgradeSourceSlot) el.upgradeSourceSlot.classList.add('is-win');
+            if (el.upgradeTargetSlot) el.upgradeTargetSlot.classList.add('is-win');
+            const prizeName = String(data.prize?.name || upgradeState.target.name).replace(/\s*#\d+\s*$/g, '').trim();
+            if (el.upgradeStatus) el.upgradeStatus.textContent = `🎉 Апгрейд! +${prizeName} (${fmtTon(data.target_price)} TON)`;
+            showToast(`Апгрейд: +${prizeName}`, 'success');
+          } else {
+            if (el.upgradeSourceSlot) el.upgradeSourceSlot.classList.add('is-lose');
+            if (el.upgradeTargetSlot) el.upgradeTargetSlot.classList.add('is-lose');
+            if (el.upgradeStatus) el.upgradeStatus.textContent = `💔 Не повезло. NFT сгорел (шанс был ${data.win_prob}%).`;
+            showToast('Апгрейд не удался', 'error');
+          }
+          loadInventory();
+        } catch (e) {
+          if (el.upgradeStatus) el.upgradeStatus.textContent = `Ошибка: ${e.message}`;
+        } finally {
+          upgradeState.playing = false;
+          setTimeout(() => {
+            if (el.upgradeSourceSlot) el.upgradeSourceSlot.classList.remove('is-spinning', 'is-win', 'is-lose');
+            if (el.upgradeTargetSlot) el.upgradeTargetSlot.classList.remove('is-spinning', 'is-win', 'is-lose');
+            if (el.playUpgradeLabel) el.playUpgradeLabel.textContent = 'Апгрейд';
+            upgradeState.source = null;
+            upgradeState.target = null;
+            upgradeRenderSource();
+            upgradeRenderTarget();
+            upgradeUpdateChance();
+            if (el.upgradeTargetList) {
+              el.upgradeTargetList.innerHTML = '<div class="bet-gifts-empty">Сначала выберите ваш NFT</div>';
+            }
+            upgradeLoadInventory();
+          }, 1800);
+        }
+      }
+
+      if (el.upgradeSourceList) {
+        el.upgradeSourceList.addEventListener('click', (ev) => {
+          const row = ev.target.closest('.bet-gift-row');
+          if (!row) return;
+          upgradeSelectSource(row.dataset.upgInvId);
+        });
+      }
+      if (el.upgradeTargetList) {
+        el.upgradeTargetList.addEventListener('click', (ev) => {
+          const row = ev.target.closest('.bet-gift-row');
+          if (!row) return;
+          upgradeSelectTarget(row.dataset.upgTargetName, row.dataset.price);
+        });
+      }
+      if (el.playUpgradeBtn) el.playUpgradeBtn.addEventListener('click', playUpgrade);
+      upgradeUpdateChance();
+
+      function updateBalance(v) {
+        if (typeof v === 'number') state.balance = v;
+        el.balanceValue.textContent = fmtTon(state.balance);
+        if (el.profileBalanceValue) el.profileBalanceValue.textContent = fmtTon(state.balance);
+      }
+      function updateOnline(v) {
+        if (typeof v === 'number') state.online = v;
+        el.onlineCount.textContent = String(state.online);
+      }
+ 
+      function nftCard(item, owned = false) {
+        const imgSrc = item.image_url || item.photo_url || '';
+        const animSrc = item.animation_url || '';
+        let media;
+        if (animSrc && /\.(json|lottie)$/i.test(animSrc)) {
+          media = `<div class="nft-lottie" data-anim-src="${escapeHtml(animSrc)}" data-fallback-img="${escapeHtml(imgSrc)}"></div>`;
+        } else if (imgSrc) {
+          const isJpg = /\.(jpe?g)(\?|#|$)/i.test(imgSrc);
+          const imgCls = isJpg ? 'nft-img-jpg' : '';
+          media = `<img class="${imgCls}" src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.onerror=null;this.outerHTML='&lt;div class=\\'nft-placeholder\\'&gt;&lt;i class=\\'fa-solid fa-gift\\'&gt;&lt;/i&gt;&lt;/div&gt;';">`;
+        } else {
+          media = `<div class="nft-placeholder"><i class="fa-solid fa-gift"></i></div>`;
+        }
+        const url = item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Открыть</a>` : '';
+        const rawTitle = String(item.name || 'NFT Gift').replace(/\s*#\d+\s*$/g, '').trim();
+        const title = escapeHtml(rawTitle || 'NFT Gift');
+        const priceVal = Number(item.price_ton || item.payout_ton || 0);
+        const invId = item.inventory_id || item.id || '';
+        const actions = owned
+          ? `<button class="nft-mini-btn" data-nft-sell="${escapeHtml(invId)}" title="Продать за TON"><i class="fa-solid fa-sack-dollar"></i> Продать</button>
+             <button class="nft-mini-btn nft-mini-btn-primary" data-nft-withdraw="${escapeHtml(invId)}" title="Вывести NFT"><i class="fa-solid fa-arrow-up-right-from-square"></i> Вывод</button>`
+          : url;
+        return `<article class="nft-card">
+          <div class="nft-img nft-img-clean">${media}</div>
+          <div class="nft-body">
+            <div class="nft-top"><strong>${title}</strong><span class="nft-source-chip">random</span></div>
+            <div class="nft-price">${fmtTon(priceVal)} TON</div>
+            <div class="nft-actions">${actions}</div>
+          </div>
+        </article>`;
+      }
+ 
+      function mountLotties(root) {
+        if (!root || typeof window.lottie === 'undefined') return;
+        const nodes = root.querySelectorAll('.nft-lottie[data-anim-src]');
+        nodes.forEach((node) => {
+          if (node.dataset.lottieMounted === '1') return;
+          node.dataset.lottieMounted = '1';
+          const src = node.dataset.animSrc;
+          const fallback = node.dataset.fallbackImg || '';
+          try {
+            const anim = window.lottie.loadAnimation({
+              container: node,
+              renderer: 'svg',
+              loop: true,
+              autoplay: true,
+              path: src,
+            });
+            anim.addEventListener('data_failed', () => {
+              if (fallback) {
+                node.innerHTML = `<img src="${fallback.replace(/"/g, '&quot;')}" alt="" loading="lazy">`;
+              } else {
+                node.innerHTML = `<div class="nft-placeholder"><i class="fa-solid fa-gift"></i></div>`;
+              }
+            });
+          } catch (e) {
+            if (fallback) {
+              node.innerHTML = `<img src="${fallback.replace(/"/g, '&quot;')}" alt="" loading="lazy">`;
+            }
+          }
+        });
+      }
+ 
+      async function loadGifts() {
+        el.giftsGrid.innerHTML = '<div class="empty-state">Загружаем подарки...</div>';
+        const params = new URLSearchParams({ source: el.giftSource.value, q: el.giftSearch.value, limit: '60' });
+        const data = await api('/api/gifts?' + params.toString());
+        el.giftsGrid.innerHTML = data.items?.length ? data.items.map(x => nftCard(x)).join('') : '<div class="empty-state">Подарки не найдены</div>';
+        mountLotties(el.giftsGrid);
+      }
+ 
+      function renderInventory(items = []) {
+        el.inventoryCount.textContent = `${items.length} NFT`;
+        if (el.sellAllInventoryBtn) el.sellAllInventoryBtn.disabled = items.length === 0;
+        el.inventoryGrid.innerHTML = items.length ? items.map(x => nftCard(x, true)).join('') : '<div class="empty-state">Пока пусто. Заберите выигрыш в Crash — NFT появится здесь.</div>';
+        mountLotties(el.inventoryGrid);
+      }
+ 
+      function renderHistory() {
+        el.crashHistory.innerHTML = '';
+        for (const item of (state.crash.history || []).slice(0, 5)) {
+          const m = Number(item.multiplier || 1.0);
+          const pill = document.createElement('span');
+          pill.className = 'hist-pill ' + (m < 1.3 ? 'hist-red' : m >= 5.0 ? 'hist-yellow' : 'hist-normal');
+          pill.textContent = `x${m.toFixed(2)}`;
+          el.crashHistory.appendChild(pill);
+        }
+      }
+ 
+      function activateBoom() {
+        // Duration = all frames / BOOM_ANIM_SPEED. Fallback to 2s if not loaded yet.
+        const dur = boomFrames.ready ? (boomFrames.duration / BOOM_ANIM_SPEED) : 2000;
+        state.view.boomUntil = performance.now() + dur + 100; // +100ms buffer
+        showBoom(); // records boomStartTime
+      }
+ 
+      // ── Button state machine ─────────────────────────────────────────────────
+      function setCrashButtons() {
+        const c = state.crash;
+        if (c.active) {
+          if (c.hasBet) {
+            el.startCrashBtn.style.display = 'none';
+            el.cashoutBtn.style.display = 'block';
+            if (c.cashedOutAt !== null) {
+              el.cashoutBtn.disabled = true;
+              el.cashoutLabel.textContent = `Выведено на x${Number(c.cashedOutAt).toFixed(2)}`;
+            } else {
+              el.cashoutBtn.disabled = c.cashoutPending;
+              el.cashoutLabel.textContent = 'Забрать';
+            }
+          } else {
+            el.cashoutBtn.style.display = 'none';
+            el.startCrashBtn.style.display = 'block';
+            el.startCrashBtn.disabled = true;
+            el.startBtnLabel.textContent = 'Следующий раунд...';
+          }
+        } else {
+          el.cashoutBtn.style.display = 'none';
+          el.startCrashBtn.style.display = 'block';
+          if (c.hasBet) {
+            el.startCrashBtn.disabled = true;
+            el.startBtnLabel.textContent = 'Ставка принята';
+          } else {
+            el.startCrashBtn.disabled = false;
+            el.startBtnLabel.textContent = 'Сделать ставку';
+          }
+        }
+      }
+ 
+      // ── Single status label ──────────────────────────────────────────────────
+      function updateStatus() {
+        const c = state.crash;
+        const left = Math.max(0, Number(c.cooldownLeft || 0));
+ 
+        if (c.active) {
+          if (c.hasBet && c.cashedOutAt === null) el.crashStatus.innerHTML = '<i class="fa-solid fa-fire" style="color:#ff5e74;margin-right:5px"></i> Раунд идёт — жмите «Забрать» вовремя!';
+          else if (c.hasBet && c.cashedOutAt !== null) el.crashStatus.innerHTML = `<i class="fa-solid fa-parachute-box" style="color:#ffd700;margin-right:5px"></i> Выведено на x${Number(c.cashedOutAt).toFixed(2)} — ракета летит...`;
+          else el.crashStatus.innerHTML = '<i class="fa-solid fa-rocket" style="color:#13ffd2;margin-right:5px"></i> Раунд идёт';
+        } else {
+          if (c.hasBet && left > 0) el.crashStatus.innerHTML = `<i class="fa-solid fa-clock" style="color:#ffd700;margin-right:5px"></i> Ставка принята — раунд через ${left.toFixed(1)}с`;
+          else if (c.hasBet) el.crashStatus.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#13ffd2;margin-right:5px"></i> Ставка принята — запускаем...';
+          else if (left > 0) el.crashStatus.innerHTML = `<i class="fa-solid fa-hourglass-half" style="color:#9d8cff;margin-right:5px"></i> Следующий раунд через ${left.toFixed(1)}с`;
+          else el.crashStatus.innerHTML = '<i class="fa-solid fa-bolt" style="color:#ffd700;margin-right:5px"></i> Новый раунд — сделайте ставку!';
+        }
+      }
+ 
+      // ── Cashout ──────────────────────────────────────────────────────────────
+      async function cashoutCrash() {
+        const c = state.crash;
+        if (!c.active || !c.hasBet || c.cashedOutAt !== null || c.cashoutPending) return;
+        c.cashoutPending = true;
+        el.cashoutBtn.disabled = true;
+        try {
+          const data = await api('/api/crash/cashout', {
+            method: 'POST',
+            body: JSON.stringify({ round_id: c.roundId, client_x: c.currentX }),
+          });
+          if (data.crashed) {
+            c.cashoutPending = false;
+          } else {
+            c.cashedOutAt = Number(data.cashout_x);
+            c.cashoutPending = false;
+            if (data.prize) {
+              const prizeText = formatPrize(data.prize, data.credited, data.payout);
+              el.crashStatus.innerHTML = `<i class="fa-solid fa-gift" style="color:#ffd700;margin-right:5px"></i> Забрал ${escapeHtml(prizeText)}!`;
+              loadInventory();
+            } else {
+              el.crashStatus.innerHTML = `<i class="fa-solid fa-sack-dollar" style="color:#13ffd2;margin-right:5px"></i> Забрал ${fmtTon(data.payout)} TON на x${c.cashedOutAt.toFixed(2)}!`;
+            }
+            updateBalance(data.balance);
+          }
+        } catch (e) {
+          c.cashoutPending = false;
+          el.crashStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ff5e74;margin-right:5px"></i> ' + e.message;
+        }
+        setCrashButtons();
+      }
+ 
+      // ── WS handlers ──────────────────────────────────────────────────────────
+      function handleSnapshot(msg) {
+        if (msg.my_sid) window.mySid = String(msg.my_sid);
+        updateBalance(msg.balance); updateOnline(msg.online);
+        if (typeof msg.total_won === 'number') {
+          state.profile.totalWon = msg.total_won;
+          el.profileTotalWon.textContent = fmtTon(msg.total_won);
+        }
+        if (typeof msg.total_wagered === 'number') {
+          state.profile.totalWagered = msg.total_wagered;
+          el.profileTotalWagered.textContent = fmtTon(msg.total_wagered);
+        }
+        if (typeof msg.ref_unlocked === 'number') {
+          state.profile.refUnlocked = msg.ref_unlocked;
+          el.refUnlocked.textContent = fmtTon(msg.ref_unlocked);
+        }
+        if (typeof msg.ref_count === 'number') {
+          state.profile.refCount = msg.ref_count;
+          el.statRefCount.textContent = String(msg.ref_count);
+          el.refCount.textContent = String(msg.ref_count);
+        }
+        renderInventory(msg.inventory || []);
+        const c = state.crash;
+        c.history = msg.history || [];
+        c.payoutFactor = Number(msg.payout_factor || 1.0);
+        c.phase = msg.phase || "cooldown";
+        c.active = c.phase === "active";
+        c.roundId = msg.round_id || "";
+        c.currentX = Number(msg.current_x || 1);
+        c.targetX = c.currentX; c.displayX = c.currentX;
+        c.cooldownLeft = Number(msg.cooldown_left || 0);
+        const mb = msg.my_bet;
+        c.hasBet = !!mb;
+        c.cashedOutAt = mb?.cashed_out_at ?? null;
+        c.cashoutPending = false;
+        renderHistory(); setCrashButtons(); updateStatus();
+        // Also render any pending/active players so the bets widget shows
+        // immediately on page load, not only when the round starts.
+        const snapPlayers = Array.isArray(msg.players) ? msg.players : [];
+        c.lastPlayers = snapPlayers;
+        if (typeof window.renderPlayers === 'function') {
+          try { window.renderPlayers(snapPlayers, c.phase === 'active'); } catch {}
+        }
+      }
+ 
+      function handleRoundStart(msg) {
+        updateOnline(msg.online);
+        const c = state.crash;
+        c.active = true; c.phase = "active"; c.roundId = msg.round_id;
+        c.currentX = 1; c.targetX = 1; c.displayX = 1;
+        c.cooldownLeft = 0; c.cashedOutAt = null; c.cashoutPending = false;
+        setCrashButtons(); updateStatus();
+        if (typeof window.syncPlayersNow === 'function') {
+          try { window.syncPlayersNow(); } catch {}
+        }
+      }
+ 
+      function handleTick(msg) {
+        updateOnline(msg.online);
+        const c = state.crash;
+        c.active = true; c.roundId = msg.round_id || c.roundId;
+        c.currentX = Number(msg.current_x || c.currentX);
+        c.targetX = c.currentX;
+        setCrashButtons(); updateStatus();
+        // Re-render the cached players list with the new X so each player's
+        // live payout moves in real time with the multiplier (instead of
+        // waiting for the next /api/state poll).
+        if (Array.isArray(state.crash.lastPlayers) && state.crash.lastPlayers.length) {
+          const factor = Number(state.crash.payoutFactor || 0.9);
+          const x = Number(c.currentX || 1);
+          const updated = state.crash.lastPlayers.map(p => {
+            if (p.status === 'flying' && !p.cashout_x) {
+              const lp = Number((p.bet || 0) * x * factor);
+              return { ...p, current_x: x, live_payout: Number(lp.toFixed(2)), nft_preview: p.nft_preview || p.prize || null };
+            }
+            return p;
+          });
+          state.crash.lastPlayers = updated;
+          if (typeof window.renderPlayers === 'function') {
+            try { window.renderPlayers(updated, true); } catch {}
+          }
+        }
+      }
+ 
+      function handlePlayersEvent(msg) {
+        const players = Array.isArray(msg.players) ? msg.players : [];
+        state.crash.lastPlayers = players;
+        const isActive = msg.phase === 'active';
+        if (typeof window.renderPlayers === 'function') {
+          try { window.renderPlayers(players, isActive); } catch {}
+        } else if (typeof window.syncPlayersNow === 'function') {
+          try { window.syncPlayersNow(); } catch {}
+        }
+      }
+ 
+      function handleRoundEnd(msg) {
+        updateOnline(msg.online);
+        const c = state.crash;
+        c.active = false; c.phase = "cooldown";
+        c.currentX = Number(msg.crash_at || c.currentX); c.targetX = 1;
+        c.cooldownLeft = Number(msg.cooldown_left || 8);
+        c.history = msg.history || c.history;
+        el.multiplierValue.textContent = `x${Number(msg.crash_at).toFixed(2)}`;
+        el.multiplierValue.style.color = '#ff5e74';
+        // Clear players immediately on round end
+        c.lastPlayers = [];
+        if (typeof window.renderPlayers === 'function') {
+          try { window.renderPlayers([], false); } catch {}
+        }
+        activateBoom(); renderHistory(); setCrashButtons(); updateStatus();
+      }
+ 
+      function handlePlayerResult(msg) {
+        const c = state.crash;
+        c.hasBet = false; c.cashedOutAt = null; c.autoCashoutAt = null; c.cashoutPending = false;
+        if (typeof msg.balance === 'number') updateBalance(msg.balance);
+        if (msg.win) {
+          state.profile.totalWon += msg.payout;
+          el.profileTotalWon.textContent = fmtTon(state.profile.totalWon);
+          if (msg.prize) {
+            const nftName = msg.prize.name || 'NFT';
+            const prizeText = formatPrize(msg.prize, msg.credited, msg.payout);
+            el.crashStatus.innerHTML = `<i class="fa-solid fa-gift" style="color:#ffd700;margin-right:5px"></i> Выиграл ${escapeHtml(prizeText)}!`;
+            const extra = (typeof msg.credited === 'number' && msg.credited > 0)
+              ? ` + ${fmtTon(msg.credited)} TON`
+              : '';
+            showToast(`Выиграл NFT: ${nftName}${extra}`, 'success', 4500);
+            loadInventory();
+          } else {
+            el.crashStatus.innerHTML = `<i class="fa-solid fa-trophy" style="color:#ffd700;margin-right:5px"></i> Выиграл ${fmtTon(msg.payout)} TON на x${Number(msg.cashed_out_x).toFixed(2)}!`;
+            showToast(`Выиграл ${fmtTon(msg.payout)} TON на x${Number(msg.cashed_out_x).toFixed(2)}`, 'success');
+          }
+        } else {
+          el.crashStatus.innerHTML = `<i class="fa-solid fa-explosion" style="color:#ff5e74;margin-right:5px"></i> Краш на x${Number(msg.crash_at || state.crash.currentX).toFixed(2)} — ставка сгорела`;
+        }
+        setCrashButtons();
+      }
+ 
+      function handleRefBonus(msg) {
+        if (typeof msg.balance === 'number') updateBalance(msg.balance);
+        if (typeof msg.bonus === 'number') {
+          state.profile.refUnlocked = Number(state.profile.refUnlocked || 0) + Number(msg.bonus || 0);
+          el.refUnlocked.textContent = fmtTon(state.profile.refUnlocked);
+        }
+      }
+ 
+      function handleCooldown(msg) {
+        updateOnline(msg.online);
+        const c = state.crash;
+        if (!c.active) {
+          c.cooldownLeft = Number(msg.cooldown_left || 0);
+          c.phase = "cooldown";
+          updateStatus(); setCrashButtons();
+        }
+      }
+ 
+      function connectCrashWS() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}/ws/crash`);
+        ws.onmessage = (event) => {
+          let msg; try { msg = JSON.parse(event.data); } catch { return; }
+          switch (msg.event) {
+            case 'notification': showToast(msg.message, 'info'); break;
+            case 'snapshot': handleSnapshot(msg); break;
+            case 'round_start': handleRoundStart(msg); break;
+            case 'tick': handleTick(msg); break;
+            case 'round_end': handleRoundEnd(msg); break;
+            case 'player_result': handlePlayerResult(msg); break;
+            case 'ref_bonus': handleRefBonus(msg); break;
+            case 'cooldown': handleCooldown(msg); break;
+            case 'players': handlePlayersEvent(msg); break;
+          }
+        };
+        ws.onclose = () => setTimeout(connectCrashWS, 1200);
+      }
+ 
+      // ── Canvas draw ──────────────────────────────────────────────────────────
+      function lerp(a, b, t) { return a + (b - a) * t; }
+      function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+ 
+      function rocketPath(x) {
+        const p = Math.min(1, Math.max(0, (x - 1) / 3.8));
+        const rise = Math.max(0, (p - 0.2) / 0.8);
+        return { xOff: 0, yOff: 64 * easeOut(rise), angle: lerp(0, -Math.PI / 8, easeOut(p)) };
+      }
+ 
+      // ── Boom lottie overlay ──────────────────────────────────────────────────
+      // ── Boom: rendered directly on canvas using boomFrames (custom PNG sprite format)
+      let boomStartTime = 0;
+
+      function showBoom() {
+        boomStartTime = performance.now();
+        // boomUntil already set by activateBoom; just record start time
+      }
+
+      // Track last rocket position for boom placement
+      let lastRocketPos = { cx: null, cy: null, size: null }; // null = not set yet
+
+      function draw(now) {
+        ctx.clearRect(0, 0, canvasW, canvasH);
+        const isBoom = now < state.view.boomUntil;
+
+        if (isBoom) {
+          if (el.rocketLottie) el.rocketLottie.style.display = 'none';
+          // Draw boom frame on canvas using custom frame player
+          const elapsed = (now - boomStartTime) * BOOM_ANIM_SPEED;
+          const w = canvasW > 0 ? canvasW : 300;
+          const h = canvasH > 0 ? canvasH : 200;
+          const boomSize = Math.min(w, h) * 1.1;
+          const bx = (lastRocketPos.cx != null && lastRocketPos.cx > 1) ? lastRocketPos.cx : w / 2;
+          const by = (lastRocketPos.cy != null && lastRocketPos.cy > 1) ? lastRocketPos.cy : h / 2;
+          if (boomFrames.ready) {
+            const frame = boomFrames.frameAtProgress(elapsed);
+            if (frame) {
+              ctx.save();
+              ctx.drawImage(frame, bx - boomSize / 2, by - boomSize / 2, boomSize, boomSize);
+              ctx.restore();
+            }
+          } else if (fallbackBoomImg.complete && fallbackBoomImg.naturalWidth > 0) {
+            ctx.save();
+            const alpha = Math.max(0, 1 - elapsed / 1400);
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(fallbackBoomImg, bx - boomSize / 2, by - boomSize / 2, boomSize, boomSize);
+            ctx.restore();
+          }
+          return;
+        }
+
+        if (!state.crash.active) {
+          if (el.rocketLottie) el.rocketLottie.style.display = 'none';
+          return;
+        }
+
+        const shownX = state.crash.displayX;
+        const pos = rocketPath(shownX);
+        const cx = canvasW / 2 + pos.xOff;
+        const cy = canvasH / 2 - pos.yOff;
+        // Bigger rocket: 60% of stage dimension (1.6x)
+        const size = Math.min(canvasW, canvasH) * 0.608;
+
+        // Save normalized pos for boom placement
+        lastRocketPos = { cx, cy, size };
+
+        const lottieReady = !!(rocketLottieAnim && rocketLottieReady && !el.rocketLottie.dataset.fallback);
+        if (el.rocketLottie && lottieReady) {
+          el.rocketLottie.style.display = 'block';
+          el.rocketLottie.style.width = size + 'px';
+          el.rocketLottie.style.height = size + 'px';
+          el.rocketLottie.style.left = '50%';
+          el.rocketLottie.style.top = '50%';
+          el.rocketLottie.style.marginLeft = (-size / 2) + 'px';
+          el.rocketLottie.style.marginTop = (-size / 2 - pos.yOff) + 'px';
+          el.rocketLottie.style.transform = `translate3d(0, 0, 0) rotate(${pos.angle}rad)`;
+        } else {
+          if (el.rocketLottie) {
+            el.rocketLottie.style.display = 'flex';
+            el.rocketLottie.style.width = size + 'px';
+            el.rocketLottie.style.height = size + 'px';
+            el.rocketLottie.style.left = '50%';
+            el.rocketLottie.style.top = '50%';
+            el.rocketLottie.style.marginLeft = (-size / 2) + 'px';
+            el.rocketLottie.style.marginTop = (-size / 2 - pos.yOff) + 'px';
+            el.rocketLottie.style.transform = `translate3d(0, 0, 0) rotate(${pos.angle}rad)`;
+          }
+          if (fallbackRocketImg.complete) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(pos.angle);
+            ctx.drawImage(fallbackRocketImg, -size / 2, -size / 2, size, size);
+            ctx.restore();
+          }
+        }
+      }
+ 
+      function updateCenterDisplay() {
+        const c = state.crash;
+        if (c.active) {
+          el.multiplierValue.classList.remove('countdown-anim');
+          el.multiplierValue.textContent = `x${c.displayX.toFixed(2)}`;
+          el.multiplierValue.style.color = c.displayX < 1.3 ? '#ff5e74' : c.displayX >= 5.0 ? '#ffd700' : '#13ffd2';
+          return;
+        }
+        if (performance.now() < state.view.boomUntil) {
+          el.multiplierValue.textContent = `x${c.currentX.toFixed(2)}`;
+          el.multiplierValue.style.color = '#ff5e74';
+          return;
+        }
+        if (c.cooldownLeft > 0) {
+          const cs = Math.ceil(c.cooldownLeft);
+          if (cs <= 5 && cs > 0 && el.multiplierValue.textContent !== cs.toString()) {
+            el.multiplierValue.textContent = cs.toString();
+            el.multiplierValue.classList.remove('countdown-anim');
+            void el.multiplierValue.offsetWidth;
+            el.multiplierValue.classList.add('countdown-anim');
+          } else if (cs > 5) { el.multiplierValue.textContent = ''; }
+        } else {
+          el.multiplierValue.classList.remove('countdown-anim');
+          el.multiplierValue.style.color = '';
+          el.multiplierValue.textContent = 'x1.00';
+        }
+      }
+ 
+      function animate(now) {
+        state.crash.displayX = lerp(state.crash.displayX, state.crash.targetX, state.crash.active ? 0.22 : 0.15);
+        if (Math.abs(state.crash.displayX - state.crash.targetX) < 0.005) state.crash.displayX = state.crash.targetX;
+        updateCenterDisplay(); draw(now);
+        requestAnimationFrame(animate);
+      }
+ 
+      // ── Cooldown ticker ──────────────────────────────────────────────────────
+      setInterval(() => {
+        if (!state.crash.active && state.crash.cooldownLeft > 0) {
+          state.crash.cooldownLeft = Math.max(0, state.crash.cooldownLeft - 0.1);
+        }
+        updateStatus(); setCrashButtons();
+      }, 100);
+ 
+      // ── Tabs ─────────────────────────────────────────────────────────────────
+      for (const btn of el.navBtns) {
+        btn.addEventListener('click', () => {
+          const tab = btn.dataset.tab;
+          for (const b of el.navBtns) b.classList.toggle('active', b === btn);
+          el.tabCrash.classList.toggle('active', tab === 'games' || tab === 'crash');
+          el.tabGifts.classList.toggle('active', tab === 'gifts');
+          el.tabInventory.classList.toggle('active', tab === 'inventory');
+          el.tabProfile.classList.toggle('active', tab === 'profile');
+          if (tab === 'gifts') loadGifts().catch(() => {});
+          if (tab === 'inventory') loadInventory();
+        });
+      }
+
+      el.gameSwitchBtns.forEach(btn => btn.addEventListener('click', () => setGameMode(btn.dataset.game || 'crash')));
+      el.gameOpenBtns.forEach(btn => btn.addEventListener('click', () => setGameMode(btn.dataset.openGame || 'lobby')));
+      el.minesCount.addEventListener('input', () => syncMinesCount(el.minesCount.value));
+      el.startMinesBtn.addEventListener('click', startMines);
+      el.cashoutMinesBtn.addEventListener('click', cashoutMines);
+      el.minesBoard.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('.mine-cell');
+        if (!btn) return;
+        revealMineCell(Number(btn.dataset.cell));
+      });
+ 
+      async function loadInventory() {
+        const data = await api('/api/inventory');
+        renderInventory(data.items || []);
+      }
+      if (el.sellAllInventoryBtn) {
+        el.sellAllInventoryBtn.addEventListener('click', async () => {
+          if (el.sellAllInventoryBtn.disabled) return;
+          el.sellAllInventoryBtn.disabled = true;
+          try {
+            const data = await api('/api/inventory/sell_all', { method: 'POST', body: JSON.stringify({}) });
+            updateBalance(data.balance);
+            renderInventory(data.items || []);
+            showToast(`Продано ${data.sold_count || 0} NFT за ${fmtTon(data.sold_for || 0)} TON`, 'success');
+          } catch (e) {
+            showToast(e.message || 'Не удалось продать всё', 'error');
+            loadInventory().catch(() => {});
+          }
+        });
+      }
+ 
+      el.inventoryGrid.addEventListener('click', async (ev) => {
+        const sellBtn = ev.target.closest('[data-nft-sell]');
+        const wdBtn = ev.target.closest('[data-nft-withdraw]');
+        if (sellBtn) {
+          try {
+            const data = await api('/api/inventory/sell', { method: 'POST', body: JSON.stringify({ item_id: sellBtn.dataset.nftSell }) });
+            updateBalance(data.balance);
+            renderInventory(data.items || []);
+            showToast('NFT продан — TON зачислены на баланс', 'success');
+          } catch (e) {
+            showToast(e.message || 'Не удалось продать NFT', 'error');
+          }
+        }
+        if (wdBtn) {
+          if (!confirm('Вывести NFT? Комиссия 0.2 TON будет списана с баланса.')) return;
+          try {
+            const data = await api('/api/inventory/withdraw', { method: 'POST', body: JSON.stringify({ item_id: wdBtn.dataset.nftWithdraw }) });
+            if (data.balance !== undefined) updateBalance(data.balance);
+            showToast(data.message || 'Заявка на вывод отправлена', 'success', 5000);
+          } catch (e) {
+            showToast(e.message || 'Не удалось оформить вывод', 'error');
+          }
+        }
+      });
+ 
+      el.refreshGiftsBtn.addEventListener('click', () => loadGifts().catch(e => showToast(e.message, 'error')));
+      el.giftSource.addEventListener('change', () => loadGifts().catch(() => {}));
+      el.giftSearch.addEventListener('input', () => {
+        clearTimeout(el.giftSearch._t);
+        el.giftSearch._t = setTimeout(() => loadGifts().catch(() => {}), 250);
+      });
+ 
+      // ── Bet sheet ────────────────────────────────────────────────────────────
+      el.startCrashBtn.addEventListener('click', () => {
+        if (state.crash.hasBet || state.crash.active) return;
+        updateBetSheetBalance();
+        el.betBottomSheet.classList.add('open');
+      });
+      el.closeSheetBtn.addEventListener('click', () => el.betBottomSheet.classList.remove('open'));
+ 
+      el.confirmBetBtn.addEventListener('click', async () => {
+        // Multi-NFT: collect all selected IDs
+        const _selIds = window._betSelectedGiftIds && window._betSelectedGiftIds.size > 0
+          ? [...window._betSelectedGiftIds]
+          : (window._betSelectedGiftId ? [window._betSelectedGiftId] : []);
+        const inventoryItemId = _selIds.length === 1 ? _selIds[0] : '';
+        const inventoryItemIds = _selIds;
+        // determine if TON tab or gift tab active
+        const isTonTab = betTabTon.classList.contains('active');
+        const bet = isTonTab ? parseDecimalInput(el.crashBet.value) : 0;
+        const autoAt = (autoToggle && autoToggle.checked && autoXValue >= 1.01) ? +autoXValue.toFixed(2) : null;
+
+        if (!inventoryItemId && (!Number.isFinite(bet) || bet < 0.1)) {
+          el.crashStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ff5e74;margin-right:5px"></i> Минимальная ставка 0.1 TON'; return;
+        }
+        if (state.crash.active) {
+          el.betBottomSheet.classList.remove('open');
+          el.crashStatus.textContent = 'Дождитесь следующего раунда'; return;
+        }
+        if (state.crash.hasBet) { el.betBottomSheet.classList.remove('open'); return; }
+
+        el.betBottomSheet.classList.remove('open');
+        try {
+          const body = inventoryItemIds.length > 0
+            ? { inventory_item_ids: inventoryItemIds, auto_cashout_at: autoAt }
+            : { bet, auto_cashout_at: autoAt };
+          const data = await api('/api/crash/start', { method: 'POST', body: JSON.stringify(body) });
+          state.crash.hasBet = true;
+          state.crash.autoCashoutAt = autoAt;
+          state.profile.totalWagered += inventoryItemIds.length > 0 ? 0 : bet;
+          if (el.profileTotalWagered) el.profileTotalWagered.textContent = fmtTon(state.profile.totalWagered);
+          updateBalance(data.balance);
+          setCrashButtons(); updateStatus();
+          window._betSelectedGiftId = '';
+          if (typeof window.syncPlayersNow === 'function') {
+            try { window.syncPlayersNow(); } catch {}
+          }
+        } catch (e) {
+          el.crashStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ff5e74;margin-right:5px"></i> ' + e.message;
+        }
+      });
+ 
+      el.cashoutBtn.addEventListener('click', cashoutCrash);
+ 
+      // ── Amount modal helper ──────────────────────────────────────────────────
+      const amountModal = document.getElementById('amountModal');
+      const amModalInput = document.getElementById('amModalInput');
+      const amModalTitle = document.getElementById('amModalTitle');
+      const amModalHint = document.getElementById('amModalHint');
+      const amModalCancel = document.getElementById('amModalCancel');
+      const amModalConfirm = document.getElementById('amModalConfirm');
+ 
+      function showAmountModal({ title, hint, min, defaultVal, icon, onConfirm }) {
+        amModalTitle.innerHTML = `<i class="fa-solid fa-${icon}"></i> ${title}`;
+        amModalHint.textContent = hint;
+        amModalInput.min = min;
+        amModalInput.value = defaultVal;
+        amModalInput.focus();
+        amountModal.classList.add('show');
+ 
+        const doConfirm = () => {
+          const val = parseFloat(amModalInput.value);
+          if (isNaN(val) || val < min) {
+            amModalInput.style.borderColor = 'rgba(255,94,116,.6)';
+            setTimeout(() => amModalInput.style.borderColor = '', 1000);
+            return;
+          }
+          amountModal.classList.remove('show');
+          cleanup();
+          onConfirm(val);
+        };
+        const doCancel = () => { amountModal.classList.remove('show'); cleanup(); };
+        const onKey = e => { if (e.key === 'Enter') doConfirm(); if (e.key === 'Escape') doCancel(); };
+ 
+        function cleanup() {
+          amModalConfirm.removeEventListener('click', doConfirm);
+          amModalCancel.removeEventListener('click', doCancel);
+          document.removeEventListener('keydown', onKey);
+          amountModal.removeEventListener('click', onBg);
+        }
+        const onBg = e => { if (e.target === amountModal) doCancel(); };
+ 
+        amModalConfirm.addEventListener('click', doConfirm);
+        amModalCancel.addEventListener('click', doCancel);
+        document.addEventListener('keydown', onKey);
+        amountModal.addEventListener('click', onBg);
+      }
+ 
+      // ── Ref link ─────────────────────────────────────────────────────────────
+      el.copyRefLinkBtn.addEventListener('click', () => {
+        if (!state.tgUser.id) { showToast('Откройте игру через Telegram', 'warn'); return; }
+        const link = `https://t.me/bet_gift_bot?start=${state.tgUser.id}`;
+        navigator.clipboard.writeText(link)
+          .then(() => {
+            el.copyRefLinkBtn.querySelector('.btn-icon').innerHTML = '<i class="fa-solid fa-check"></i>';
+            setTimeout(() => { el.copyRefLinkBtn.querySelector('.btn-icon').innerHTML = '<i class="fa-solid fa-clipboard"></i>'; }, 2000);
+            showToast('Реферальная ссылка скопирована', 'success');
+          })
+          .catch(() => showToast(link, 'info', 8000));
+      });
+ 
+      // ── Init ─────────────────────────────────────────────────────────────────
+      async function init() {
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        // Fix: call resize after layout is fully painted
+        setTimeout(resizeCanvas, 50);
+        setTimeout(resizeCanvas, 300);
+        await Promise.allSettled([boomFrames.load()]);
+        if (window.lottie) {
+          rocketLottieAnim = lottie.loadAnimation({
+            container: el.rocketLottie,
+            renderer: 'svg', loop: true, autoplay: true,
+            path: '/animation/rocket2.json',
+          });
+          rocketLottieAnim.setSpeed(ROCKET_ANIM_SPEED);
+          rocketLottieAnim.addEventListener('DOMLoaded', () => {
+            rocketLottieReady = true;
+          });
+          rocketLottieAnim.addEventListener('data_failed', () => {
+            rocketLottieReady = false;
+            el.rocketLottie.dataset.fallback = '1';
+          });
+        }
+ 
+        const data = await api('/api/state');
+        if (data.my_sid) window.mySid = String(data.my_sid);
+        updateBalance(data.balance); updateOnline(data.crash.online || 0);
+        state.profile.totalWon = data.total_won || 0;
+        state.profile.totalWagered = data.total_wagered || 0;
+        state.profile.refUnlocked = data.ref_unlocked || 0;
+        state.profile.refCount = data.ref_count || 0;
+ 
+        const c = state.crash;
+        c.history = data.crash.history || [];
+        c.payoutFactor = Number(data.crash.payout_factor || 1.0);
+        c.phase = data.crash.phase || "cooldown";
+        c.active = c.phase === "active";
+        c.roundId = data.crash.round_id || "";
+        c.currentX = Number(data.crash.current_x || 1);
+        c.targetX = c.currentX; c.displayX = c.currentX;
+        c.cooldownLeft = Number(data.crash.cooldown_left || 0);
+        const mb = data.crash.my_bet;
+        c.hasBet = !!mb; c.cashedOutAt = mb?.cashed_out_at ?? null;
+ 
+        // Profile elements
+        el.profileTotalWon.textContent = fmtTon(state.profile.totalWon);
+        el.profileTotalWagered.textContent = fmtTon(state.profile.totalWagered);
+        el.statRefCount.textContent = String(state.profile.refCount);
+        if (el.refInstant) el.refInstant.textContent = '10%';
+        el.refUnlocked.textContent = fmtTon(state.profile.refUnlocked);
+        el.refCount.textContent = String(state.profile.refCount);
+ 
+        // TG user
+        const user = tg?.initDataUnsafe?.user;
+        if (user) {
+          state.tgUser.id = user.id;
+          state.tgUser.username = user.username || '';
+          state.tgUser.name = ([user.first_name, user.last_name].filter(Boolean).join(' ') || `@${user.username || 'player'}`).slice(0, 24);
+          if (user.photo_url) state.tgUser.avatar = user.photo_url;
+        }
+        const ini = (state.tgUser.name || 'P').trim()[0].toUpperCase();
+        const defSvg = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='100%' height='100%' fill='#1c2640'/><text x='50%' y='56%' dominant-baseline='middle' text-anchor='middle' font-size='42' fill='white' font-family='Arial'>${ini}</text></svg>`)}`;
+        el.profileName.textContent = state.tgUser.name;
+        el.profileUsername.textContent = state.tgUser.username ? `@${state.tgUser.username}` : '';
+        if (state.tgUser.id) {
+          el.profileAvatar.src = `/api/avatar/${state.tgUser.id}`;
+          el.profileAvatar.onerror = () => { el.profileAvatar.src = state.tgUser.avatar || defSvg; };
+        } else { el.profileAvatar.src = state.tgUser.avatar || defSvg; }
+ 
+        // Register TG user
+        if (state.tgUser.id) {
+          const refId = (window.getReferralId ? window.getReferralId() : null);
+          try { await api('/api/register_tg', { method: 'POST', body: JSON.stringify({ tg_user_id: state.tgUser.id, ref_id: refId }) }); }
+          catch (e) { console.error('register_tg', e); }
+        }
+ 
+        // TON Connect
+        try {
+          const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: window.location.origin + '/tonconnect-manifest.json',
+            buttonRootId: 'ton-connect',
+          });
+          const tonConnectWrapper = document.getElementById('ton-connect');
+          const walletActions = document.getElementById('walletActions');
+          const disconnectBtn = document.getElementById('disconnectBtn');
+          const depositBtn = document.getElementById('depositBtn');
+          const withdrawBtn = document.getElementById('withdrawBtn');
+ 
+          tonConnectUI.onStatusChange(wallet => {
+            if (wallet) {
+              tonConnectWrapper.style.display = 'none';
+              walletActions.style.display = 'flex';
+            } else {
+              tonConnectWrapper.style.display = 'block';
+              walletActions.style.display = 'none';
+            }
+          });
+ 
+          disconnectBtn.addEventListener('click', async () => {
+             await tonConnectUI.disconnect();
+          });
+ 
+          depositBtn.addEventListener('click', () => {
+            showAmountModal({
+              title: 'Депозит TON',
+              hint: 'Минимальная сумма: 0.1 TON. Средства зачислятся автоматически в течение пары минут.',
+              icon: 'arrow-down',
+              min: 0.1,
+              defaultVal: '1',
+              onConfirm: (amt) => {
+                const tgId = state.tgUser.id || TG_USER?.id || tg?.initDataUnsafe?.user?.id;
+                if (!tgId) { showToast('Откройте игру через Telegram', 'warn'); return; }
+                const nanoAmt = Math.floor(amt * 1e9).toString();
+                const comment = 'DEP-' + tgId;
+                const addr = 'UQBp8MGK02UMez-gbOC4NPSYZ5cyE2O2tI_t1BMzUvMw5m2y';
+                const link = `ton://transfer/${addr}?amount=${nanoAmt}&text=${encodeURIComponent(comment)}`;
+                window.location.href = link;
+              }
+            });
+          });
+ 
+          withdrawBtn.addEventListener('click', async () => {
+            if (!tonConnectUI.wallet) return;
+            const addr = tonConnectUI.wallet.account.address;
+            showAmountModal({
+              title: 'Вывод TON',
+              hint: `Минимум 5 TON. Доступно: ${fmtTon(state.balance)} TON`,
+              icon: 'arrow-up',
+              min: 5,
+              defaultVal: '5',
+              onConfirm: async (amt) => {
+                if (amt > state.balance) { showToast('Недостаточно средств', 'error'); return; }
+                try {
+                  const res = await api('/api/withdraw', { method: 'POST', body: JSON.stringify({ amount: amt, address: addr }) });
+                  updateBalance(res.balance);
+                  showToast('Заявка на вывод отправлена', 'success');
+                } catch(e) {
+                  showToast(e.message || 'Ошибка вывода', 'error');
+                }
+              }
+            });
+          });
+        } catch (err) { console.error("TON Connect:", err); }
+ 
+        renderHistory(); setCrashButtons(); updateStatus();
+        requestAnimationFrame(animate);
+        connectCrashWS();
+      }
+ 
+      init().catch(e => {
+        el.crashStatus.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color:#ff5e74;margin-right:5px"></i> ${e.message}`;
+        requestAnimationFrame(animate);
+      });
+    })();
+  </script>
+<script id="casinoUiEnhancer">
+  (() => {
+    const isLocalDev = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const tg = isLocalDev ? null : window.Telegram?.WebApp;
+    const tgUser = tg?.initDataUnsafe?.user;
+    const api = (url, opts = {}) => fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Ошибка');
+      return data;
+    });
+    const fmtTon = (v) => Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 }).replace(/,/g, '');
+    const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    const playerAvatarSvg = (name) => {
+      const letter = (String(name || 'P').trim()[0] || 'P').toUpperCase();
+      return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='88' height='88'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop stop-color='#5b8cff'/><stop offset='1' stop-color='#8b5dff'/></linearGradient></defs><rect width='100%' height='100%' rx='44' fill='url(#g)'/><text x='50%' y='56%' dominant-baseline='middle' text-anchor='middle' font-size='34' fill='white' font-family='Arial'>${letter}</text></svg>`)}`;
+    };
+    const ensurePanel = () => {
+      const statusBox = document.querySelector('#tab-crash .status-box');
+      if (!statusBox) return null;
+      let panel = document.getElementById('crashLiveBetsCard');
+      if (panel) return panel;
+      panel = document.createElement('section');
+      panel.id = 'crashLiveBetsCard';
+      panel.className = 'live-bets-card crash-only game-pane-hidden';
+      panel.innerHTML = `
+        <div class="live-bets-head">
+          <div class="live-bets-title"><span>Ставки раунда</span></div>
+          <div class="live-bets-stats">
+            <span class="live-chip" id="livePlayersCount">0 в раунде</span>
+            <span class="live-chip live-chip-ton" id="liveBankValue">0.00 TON</span>
+          </div>
+        </div>
+        <div id="crashPlayersEmpty" class="live-bets-empty">Пока ставок нет — залетай первым в новый раунд.</div>
+        <div id="crashPlayersList" class="crash-players-list"></div>
+      `;
+      statusBox.insertAdjacentElement('afterend', panel);
+      return panel;
+    };
+      const syncIcons = () => {
+        const cashoutIcon = document.querySelector('#cashoutBtn .btn-icon');
+        const crashNav = document.querySelector('.nav-btn[data-tab="games"] .nav-icon');
+        const profileNav = document.querySelector('.nav-btn[data-tab="profile"] .nav-icon');
+        if (cashoutIcon) cashoutIcon.innerHTML = '<i class="fa-solid fa-hand-holding-dollar"></i>';
+        if (crashNav) crashNav.innerHTML = '<i class="fa-solid fa-gamepad"></i>';
+        if (profileNav) profileNav.innerHTML = '<i class="fa-solid fa-user-astronaut"></i>';
+      };
+    const renderPlayers = (players = [], active = false) => {
+      const stage = document.querySelector('.space-stage');
+      ensurePanel();
+      const list = document.getElementById('crashPlayersList');
+      const empty = document.getElementById('crashPlayersEmpty');
+      const count = document.getElementById('livePlayersCount');
+      const bank = document.getElementById('liveBankValue');
+      if (!list || !empty || !count || !bank) return;
+      const safePlayers = Array.isArray(players) ? players : [];
+      const totalBet = safePlayers.reduce((sum, player) => sum + Number(player.bet || 0), 0);
+      count.textContent = `${safePlayers.length} в раунде`;
+      bank.textContent = `${fmtTon(totalBet)} TON`;
+      empty.style.display = safePlayers.length ? 'none' : 'flex';
+      list.style.display = safePlayers.length ? 'grid' : 'none';
+      if (stage) {
+        stage.classList.toggle('space-stage-live', !!active);
+        stage.classList.toggle('space-stage-waiting', !active);
+      }
+      const appState = window.appState || {};
+      const crashState = appState.crash || {};
+      const factor = crashState.payoutFactor || 1;
+      const sortedPlayers = [...safePlayers].sort((a, b) => {
+        const aLost = a.status === 'lost';
+        const bLost = b.status === 'lost';
+        if (aLost !== bLost) return aLost ? 1 : -1;
+        return Number(b.payout || b.live_payout || 0) - Number(a.payout || a.live_payout || 0);
+      });
+      // Multi-layered fallback for "this row is me":
+      //  1. Server-set is_me (from personalised WS broadcast).
+      //  2. Match by sid (server includes sid in each row + my_sid in
+      //     the WS snapshot / /api/state). Survives even when Telegram
+      //     init failed and tgUser is undefined.
+      //  3. Match by tg_user_id when Telegram init did succeed.
+      const mySid = (typeof window !== 'undefined' && window.mySid) ? String(window.mySid) : null;
+      const myTgId = (typeof tgUser !== 'undefined' && tgUser && tgUser.id) ? Number(tgUser.id) : null;
+      const diamond = '<img src="/animation/ton.svg" class="ton-diamond" alt="TON" aria-hidden="true">';
+      list.innerHTML = sortedPlayers.map((player) => {
+        const isMe = !!player.is_me
+          || (mySid != null && String(player.sid) === mySid)
+          || (myTgId != null && Number(player.tg_user_id) === myTgId);
+        const isWin = player.status === 'cashed';
+        const isLost = player.status === 'lost';
+        const isFlying = player.status === 'flying';
+        const fallbackAvatar = playerAvatarSvg(player.name);
+        const bet = Number(player.bet || 0);
+        const shownX = Number(player.cashout_x || player.current_x || 1);
+        const shownAmount = Number(
+          player.payout
+          || player.live_payout
+          || (bet * shownX * (factor || 1))
+          || 0
+        );
+        const prize = player.prize || player.nft_preview || null;
+        const credited = Number(player.credited || 0);
+        const prizeText = prize ? `NFT${credited > 0 ? ` + ${fmtTon(credited)} TON` : ''}` : '';
+        const prizeTitle = prize ? `${prize.name || 'NFT'}${credited > 0 ? ` + ${fmtTon(credited)} TON` : ''}` : '';
+        // Right-side pill content per state:
+        //   - cashed: payout (e.g. "3.50") with diamond icon, green
+        //   - flying: live payout, teal
+        //   - lost  : "—", red
+        //   - waiting: bet, neutral
+        let pillContent = '';
+        if (isLost) {
+          pillContent = `<span class="player-pill-amount">—</span>`;
+        } else if (isWin && prize) {
+          pillContent = `${diamond}<span class="player-pill-amount">${credited > 0 ? fmtTon(credited) : fmtTon(shownAmount)}</span>`;
+        } else if (isWin) {
+          pillContent = `${diamond}<span class="player-pill-amount">${fmtTon(shownAmount)}</span>`;
+        } else if (isFlying && prize) {
+          pillContent = `${diamond}<span class="player-pill-amount">${fmtTon(shownAmount)}</span>`;
+        } else if (isFlying) {
+          pillContent = `${diamond}<span class="player-pill-amount">${fmtTon(shownAmount)}</span>`;
+        } else {
+          pillContent = `${diamond}<span class="player-pill-amount">${fmtTon(bet)}</span>`;
+        }
+        // Bet pill on the left side: "0.40 ×1.80"
+        const xLabel = (isWin || isLost || isFlying) && shownX > 0
+          ? `×${shownX.toFixed(2)}`
+          : '';
+        const betPill = `${diamond}<span class="player-bet-amount">${fmtTon(bet)}</span>${xLabel ? `<span class="player-bet-x">${escapeHtml(xLabel)}</span>` : ''}`;
+        const subtext = player.username
+          ? `@${String(player.username).replace(/^@/, '')}`
+          : (isMe ? 'Это вы' : '');
+        const nftPreview = prize
+          ? `<span class="player-nft-preview" title="${escapeHtml(prizeTitle)}">${prize.image_url ? `<img src="${escapeHtml(prize.image_url)}" alt="${escapeHtml(prize.name || 'NFT')}" onerror="this.remove()">` : '<i class="fa-solid fa-gift"></i>'}<span>${escapeHtml(prizeTitle)}</span></span>`
+          : '';
+        return `
+          <div class="crash-player-row ${isMe ? 'is-me' : ''} ${isWin ? 'is-win' : ''} ${isLost ? 'is-lost' : ''} ${isFlying ? 'is-flying' : ''}" data-payout="${escapeHtml(String(player.payout || 0))}">
+            <div class="crash-player-main">
+              <img class="crash-player-ava" src="${escapeHtml(player.avatar_url || fallbackAvatar)}" onerror="this.onerror=null;this.src='${fallbackAvatar}'" alt="${escapeHtml(player.name || 'Игрок')}" />
+              <div class="crash-player-info">
+                <strong><span class="leader-crown"><i class="fa-solid fa-crown"></i></span><span class="player-name-text">${escapeHtml(player.name || 'Игрок')}</span></strong>
+                ${subtext ? `<span class="player-sub-text">${escapeHtml(subtext)}</span>` : ''}
+              </div>
+            </div>
+            <div class="crash-player-side">
+              <div class="crash-player-pills">
+                <strong class="player-bet-pill">${betPill}</strong>
+                <span class="player-status-pill player-status-${escapeHtml(player.status || 'waiting')}">${pillContent}</span>
+              </div>
+              ${nftPreview}
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+    const syncTelegramProfile = async () => {
+      if (!tgUser?.id) return;
+      const refId = (window.getReferralId ? window.getReferralId() : null);
+      const payload = {
+        tg_user_id: tgUser.id,
+        ref_id: Number.isFinite(refId) ? refId : null,
+        name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || `@${tgUser.username || 'player'}`,
+        username: tgUser.username || '',
+        avatar_url: tgUser.photo_url || '',
+      };
+      try {
+        await api('/api/register_tg', { method: 'POST', body: JSON.stringify(payload) });
+      } catch { }
+    };
+    const syncPlayers = async () => {
+      try {
+        const data = await api('/api/state');
+        if (data.my_sid) window.mySid = String(data.my_sid);
+        const players = data.crash?.players || [];
+        if (window.appState?.crash) window.appState.crash.lastPlayers = players;
+        renderPlayers(players, !!data.crash?.active);
+      } catch { }
+    };
+    // Expose so bet/cashout flows can trigger an immediate refresh.
+    window.syncPlayersNow = syncPlayers;
+    window.renderPlayers = renderPlayers;
+    syncIcons();
+    ensurePanel();
+    setTimeout(syncTelegramProfile, 350);
+    syncPlayers();
+    // WS now pushes `players` every 500ms during the round + instantly on
+    // every bet/cashout/phase-change, so polling can be slower — it's just a
+    // safety net.
+    setInterval(() => {
+      syncIcons();
+      syncPlayers();
+    }, 3000);
+  })();
+</script>
+ 
+<script id="casinoUiEffects">
+  (() => {
+    const seenRows = new Set();
+    function ensureFxNodes() {
+      const stage = document.querySelector('.space-stage');
+      if (!stage) return {};
+      let trail = document.getElementById('rocketTrailFx');
+      if (!trail) {
+        trail = document.createElement('div');
+        trail.id = 'rocketTrailFx';
+        trail.innerHTML = '<span class="trail-ribbon trail-ribbon-a"></span><span class="trail-ribbon trail-ribbon-b"></span>';
+        stage.appendChild(trail);
+      }
+      let spark = document.getElementById('rocketTrailSpark');
+      if (!spark) {
+        spark = document.createElement('div');
+        spark.id = 'rocketTrailSpark';
+        stage.appendChild(spark);
+      }
+      return { stage, trail, spark };
+    }
+    function parsePayout(row) {
+      const raw = row.dataset.payout || '0';
+      const value = parseFloat(raw.replace(',', '.').replace(/[^\d.]/g, ''));
+      return Number.isFinite(value) ? value : 0;
+    }
+    function decorateRows() {
+      const oldLeaderCard = document.getElementById('liveTopPlayer');
+      if (oldLeaderCard) oldLeaderCard.remove();
+      const rows = [...document.querySelectorAll('#crashPlayersList .crash-player-row')];
+      let leader = null;
+      for (const row of rows) {
+        row.classList.remove('is-top');
+        const name = row.querySelector('.crash-player-info strong')?.textContent?.trim() || '';
+        const payout = parsePayout(row);
+        const statusClass = [...(row.querySelector('.player-status-pill')?.classList || [])].find((cls) => cls.startsWith('player-status-')) || 'player-status-waiting';
+        const key = `${name}|${payout}|${statusClass}|${row.classList.contains('is-me')}`;
+        if (!seenRows.has(key)) {
+          seenRows.add(key);
+          row.classList.remove('row-enter');
+          void row.offsetWidth;
+          row.classList.add('row-enter');
+          setTimeout(() => row.classList.remove('row-enter'), 680);
+        }
+        if (payout > 0 && (!leader || payout > leader.payout)) {
+          leader = { row, payout };
+        }
+      }
+      if (leader) leader.row.classList.add('is-top');
+    }
+    function syncMultiplierPulse() {
+      const multiplier = document.getElementById('multiplierValue');
+      const stage = document.querySelector('.space-stage');
+      if (!multiplier || !stage) return;
+      const active = stage.classList.contains('space-stage-live');
+      const match = /^x(\d+(?:\.\d+)?)$/.exec(multiplier.textContent.trim());
+      const value = match ? Number(match[1]) : 1;
+      const scale = Math.min(1.18, 1.02 + value * 0.014);
+      multiplier.style.setProperty('--multiplier-scale', String(scale));
+      multiplier.classList.toggle('multiplier-live-pulse', active);
+    }
+    function syncRocketTrail() {
+      const nodes = ensureFxNodes();
+      const stage = nodes.stage;
+      const trail = nodes.trail;
+      const spark = nodes.spark;
+      const rocket = document.getElementById('rocketLottie');
+      const multiplier = document.getElementById('multiplierValue');
+      if (!stage || !trail || !spark || !rocket || !multiplier) return;
+      const active = stage.classList.contains('space-stage-live');
+      if (!active) {
+        trail.classList.remove('active');
+        spark.classList.remove('active');
+        return;
+      }
+      const stageRect = stage.getBoundingClientRect();
+      const rocketRect = rocket.getBoundingClientRect();
+      if (!rocketRect.width || !rocketRect.height) return;
+      const match = /^x(\d+(?:\.\d+)?)$/.exec(multiplier.textContent.trim());
+      const x = match ? Number(match[1]) : 1;
+      const angleMatch = /rotate\(([-\d.]+)rad\)/.exec(rocket.style.transform || '');
+      const angle = angleMatch ? Number(angleMatch[1]) : -0.2;
+      const cx = rocketRect.left - stageRect.left + rocketRect.width * 0.36;
+      const cy = rocketRect.top - stageRect.top + rocketRect.height * 0.61;
+      const width = Math.max(96, rocketRect.width * (1.04 + Math.min(0.72, x / 10)));
+      const height = Math.max(7, Math.min(12, rocketRect.height * 0.14));
+      trail.style.left = `${cx}px`;
+      trail.style.top = `${cy}px`;
+      trail.style.width = `${width}px`;
+      trail.style.height = `${height}px`;
+      trail.style.transform = `translate(-74%, -50%) rotate(${angle}rad) scaleX(${Math.min(1.55, 1 + x / 7)})`;
+      spark.style.left = `${cx + Math.cos(angle) * 20}px`;
+      spark.style.top = `${cy + Math.sin(angle) * 20}px`;
+      spark.style.transform = `translate(-50%, -50%) scale(${Math.min(1.45, 0.95 + x / 7)})`;
+      // Trail and spark disabled intentionally (trail removed per design)
+      trail.classList.remove('active');
+      spark.classList.remove('active');
+    }
+    function tick() {
+      decorateRows();
+      syncMultiplierPulse();
+      syncRocketTrail();
+      requestAnimationFrame(tick);
+    }
+    tick();
+  })();
+</script>
+
+<!-- Devin override: forces neutral grey bet pills + bigger rocket regardless of CSS cache -->
+<style id="boom-fallback-anim">
+  @keyframes boom-fallback-fade {
+    0%   { opacity:1; transform: scale(0.5); }
+    40%  { opacity:1; transform: scale(1.15); }
+    100% { opacity:0; transform: scale(1.4); }
+  }
+  /* ton-diamond as img tag */
+  .player-bet-pill img.ton-diamond,
+  .player-status-pill img.ton-diamond,
+  .live-chip-ton img.ton-diamond {
+    width: 10px !important;
+    height: 10px !important;
+    object-fit: contain;
+    display: inline-block;
+    vertical-align: middle;
+    flex: 0 0 10px;
+  }
+</style>
+<style id="devin-bet-rocket-override">
+  /* live-chip-ton (TON badge in panel header) — silver instead of teal */
+  .live-chip-ton {
+    color: #d6deec !important;
+    background: rgba(150, 165, 195, 0.12) !important;
+    border-color: rgba(170, 188, 220, 0.22) !important;
+  }
+  /* default + flying bet/status pills — silver-grey */
+  .player-bet-pill,
+  .player-status-pill,
+  .crash-player-row.is-flying .player-bet-pill,
+  .crash-player-row.is-flying .player-status-pill {
+    color: #d8e0ee !important;
+    background: rgba(140, 156, 188, 0.16) !important;
+    border-color: rgba(170, 188, 220, 0.20) !important;
+  }
+  /* Rocket overlay — JS sets exact px */
+  .rocket-overlay {
+    min-width: unset !important;
+    min-height: unset !important;
+  }
+</style>
+
+</body>
+ 
+</html>
